@@ -54,10 +54,10 @@ see "Android emulator" below.
 
 ## Android emulator
 
-Partially verified. On `clockin_seeker` (Android 15, x86_64-less arm64 image)
+Partially verified. On `clockin_seeker` (Android 15, arm64 image)
 the release APK **installed** (`adb install` → Success, twice) and **launched**
 (`dumpsys window` showed `app.launch.juno` focused; the screenshot shows Juno's
-onboarding screen). Driving the rest of the flow with scripted taps failed:
+onboarding colours behind a system "isn't responding" dialog). Driving the rest of the flow with scripted taps failed:
 the emulator was so overloaded (shared host, other builders) that the Pixel
 Launcher raised "isn't responding" dialogs over the app and each
 `uiautomator dump` took minutes, so the lock was released rather than held
