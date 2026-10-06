@@ -54,7 +54,22 @@ see "Android emulator" below.
 
 ## Android emulator
 
-EMULATOR_RESULTS_PENDING
+Partially verified. On `clockin_seeker` (Android 15, x86_64-less arm64 image)
+the release APK **installed** (`adb install` → Success, twice) and **launched**
+(`dumpsys window` showed `app.launch.juno` focused; the screenshot shows Juno's
+onboarding screen). Driving the rest of the flow with scripted taps failed:
+the emulator was so overloaded (shared host, other builders) that the Pixel
+Launcher raised "isn't responding" dialogs over the app and each
+`uiautomator dump` took minutes, so the lock was released rather than held
+for another builder's hour. The same JS bundle's full flow (dev wallet →
+faucet → clock-in → boost → DBC buy) **was** verified on the iOS simulator
+above, and the bundle inside the APK was checked to contain the current code.
+
+To finish this on a quiet machine (5 minutes): take the lock, boot the AVD,
+`adb install -r -g juno-clockin.apk`, open Juno → Get Started → "Connect
+wallet to clock in" → (Connect wallet shows the no-wallet message) → Dev
+wallet (devnet only) → Clock in. The script used is in the session notes; it
+is a plain `adb`/`uiautomator` tap-by-text loop.
 
 ## Not verified / known limits
 
