@@ -168,6 +168,7 @@ export default function SocialScreen() {
 
       {markets.loading || markets.data === null ? (
         <ScrollView contentContainerStyle={{ paddingBottom: 130 }}>
+          <ClockInCard />
           <View style={styles.rings}>
             {[0, 1, 2, 3].map((i) => (
               <View key={i} style={{ alignItems: "center", gap: 6 }}>
@@ -302,7 +303,7 @@ export default function SocialScreen() {
         </View>
       ) : null}
 
-      <BoostSheet target={boosting} onClose={() => setBoosting(null)} />
+      <BoostSheet target={boosting} onClose={() => setBoosting(null)} bottomInset={tabBar.height} />
 
       {trade ? (
         <QuickTrade

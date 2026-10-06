@@ -20,7 +20,16 @@ export type BoostTarget = { coinMint: string; creator: string; name: string; sym
  * the treasury that pays tomorrow's clock-in rewards. Boosted posts rise to the
  * top of everyone's feed, ranked by what the treasury actually received.
  */
-export function BoostSheet({ target, onClose }: { target: BoostTarget | null; onClose: () => void }) {
+export function BoostSheet({
+  target,
+  onClose,
+  bottomInset = 0,
+}: {
+  target: BoostTarget | null;
+  onClose: () => void;
+  /** Height of whatever covers the bottom of the screen (the tab bar), so nothing hides behind it. */
+  bottomInset?: number;
+}) {
   const wallet = useWallet();
   const daily = useClockIn();
   const [amount, setAmount] = useState<number>(BOOST_AMOUNTS[0]);
@@ -61,7 +70,7 @@ export function BoostSheet({ target, onClose }: { target: BoostTarget | null; on
 
   return (
     <BottomSheet visible={target !== null} onClose={onClose} dismissable={!busy}>
-      <View style={styles.sheet}>
+      <View style={[styles.sheet, { paddingBottom: 36 + bottomInset }]}>
         <Text style={styles.kicker}>BOOST WITH SKR</Text>
         <Text style={styles.title} numberOfLines={1}>
           {target?.name ?? ""}

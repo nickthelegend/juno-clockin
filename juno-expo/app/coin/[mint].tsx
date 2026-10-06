@@ -8,6 +8,9 @@ import styled from "styled-components/native";
 
 import { CoinGlyph, Identicon } from "../../components/art";
 import { CommentsSheet } from "../../components/CommentsSheet";
+import { BoostSheet, type BoostTarget } from "../../components/BoostSheet";
+import { useClockIn } from "../../lib/clockinContext";
+import { SKR_SHORT } from "../../lib/solana";
 import { DepthChart } from "../../components/DepthChart";
 import { Handle } from "../../components/Handle";
 import { PriceLine } from "../../components/PriceLine";
@@ -100,6 +103,8 @@ export default function CoinScreen() {
   const wallet = useWallet();
   const detail = useApi(() => juno.coin(mint), [mint]);
   const coin = detail.data?.coin;
+  const daily = useClockIn();
+  const [boosting, setBoosting] = useState<BoostTarget | null>(null);
 
   // Only for the count on the tab — the sheet reads its own list when opened,
   // because a list fetched on mount is stale by the time anyone looks at it.
@@ -485,6 +490,19 @@ export default function CoinScreen() {
                 <PostGlyph />
               </PostTap>
             </Tappable>
+            {/* Boost with the SKR earned by clocking in: the creator gets 80%. */}
+            <Tappable
+              onPress={() =>
+                setBoosting({ coinMint: coin.address, creator: coin.creator.wallet, name: coin.name, symbol: coin.symbol })
+              }
+              to={0.94}
+            >
+              <PostTap accessibilityRole="button" accessibilityLabel={`Boost with ${SKR_SHORT}`}>
+                <BoostLabel>
+                  ⚡{daily.boosts.get(coin.address) ? ` ${Math.round(daily.boosts.get(coin.address)!.amount)}` : ""}
+                </BoostLabel>
+              </PostTap>
+            </Tappable>
             {coin.curve.graduated ? (
               <GraduatedNote>Trading continues in its DAMM v2 pool.</GraduatedNote>
             ) : (
@@ -520,6 +538,8 @@ export default function CoinScreen() {
               }}
             />
           ) : null}
+
+          <BoostSheet target={boosting} onClose={() => setBoosting(null)} />
 
           <CommentsSheet
             visible={commentsOpen}
@@ -1360,4 +1380,10 @@ const GraduatedNote = styled.Text`
   color: ${(p) => p.theme.colors.muted};
   text-align: center;
   align-self: center;
+`;
+
+const BoostLabel = styled.Text`
+  font-size: 18px;
+  font-weight: 800;
+  color: ${(p) => p.theme.colors.text};
 `;

@@ -1,3 +1,5 @@
+> Historical: the Solana STOCKLANA submission (Sep 2026). The CLOCK IN submission is [clockin/SUBMISSION.md](../clockin/SUBMISSION.md).
+
 # Juno: STOCKLANA submission
 
 **Every post is a market.** Post a photo or a reel on Juno and it launches its
@@ -12,7 +14,7 @@ listed and against Pyth for the ones that have.
 |---|---|
 | Live app | https://juno-app-chi.vercel.app (devnet; Profile → *Get devnet SOL*) |
 | Code | this repository: `juno-expo/` is the app, `lib/juno/` and `app/api/juno/` the server |
-| Builds | [Release v1.1.0](https://github.com/robinbanter/juno/releases/tag/v1.1.0): Android APK (arm64) and iOS Simulator build, with Privy wallets |
+| Builds | Release v1.1.0 (STOCKLANA build, published on the original robinbanter/juno repository): Android APK (arm64) and iOS Simulator build, with Privy wallets |
 | Proof | [JUNO.md → On-chain proof](../JUNO.md#on-chain-proof-devnet) |
 
 ## The problem

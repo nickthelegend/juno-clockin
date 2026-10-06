@@ -1,9 +1,10 @@
-import { useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import styled from "styled-components/native";
 
 import { OnboardingArt } from "../components/art";
 import { Body, Button, Display } from "../components/kit";
+import { useWallet } from "../lib/wallet";
 
 /**
  * Onboarding.
@@ -15,6 +16,11 @@ import { Body, Button, Display } from "../components/kit";
  */
 export default function Onboarding() {
   const router = useRouter();
+  const wallet = useWallet();
+
+  // Someone who already has a wallet is here to clock in, not to be pitched:
+  // a returning open goes straight to the feed and its clock-in card.
+  if (wallet.ready && wallet.address) return <Redirect href="/(tabs)/social" />;
 
   return (
     <Page edges={["top", "bottom"]}>
@@ -34,9 +40,8 @@ export default function Onboarding() {
         <Display>Every post{"\n"}is a market.</Display>
         <Body muted>
           Post a photo or a reel and it launches its own Meteora bonding curve.
-          Buy into the posts you believe in — creators earn the trading fees.
-          Pre-IPO names like OpenAI and SpaceX trade here too, marked against
-          Tessera.
+          Clock in every day to earn SKR, then boost the posts you believe in —
+          creators earn the fees and the boosts.
         </Body>
       </Copy>
 

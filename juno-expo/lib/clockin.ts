@@ -117,6 +117,24 @@ export async function readClockIns(address: string, connection: Connection = dev
 
 type Window = { blockhash: string; lastValidBlockHeight: number };
 
+/**
+ * One line a person can act on, instead of web3.js' multi-paragraph
+ * simulation dump ("Catch the SendTransactionError and call getLogs()…").
+ */
+export function friendlyTxError(error: unknown): string {
+  const text = error instanceof Error ? error.message : String(error);
+  if (/insufficient (funds|lamports)|no record of a prior credit|0x1\b/i.test(text)) {
+    return "Not enough devnet SOL for the fee. Tap Get devnet SOL on your profile, then try again.";
+  }
+  if (/blockhash not found|block height exceeded|expired/i.test(text)) {
+    return "The network moved on before it was signed. Try again.";
+  }
+  if (/declined|rejected|cancel/i.test(text)) return "You declined the signature.";
+  if (/429|Too Many Requests/i.test(text)) return "Devnet is rate-limiting right now. Try again in a minute.";
+  const first = text.split("\n").find((line) => line.trim() && !/^Simulation failed\.?$/i.test(line.trim()));
+  return (first ?? text).replace(/^Message:\s*/, "").slice(0, 160);
+}
+
 /** Sign a phone-built transaction with the connected wallet and send it to devnet. */
 async function signAndSend(
   wallet: WalletState,
@@ -128,13 +146,17 @@ async function signAndSend(
     .serialize({ requireAllSignatures: false, verifySignatures: false })
     .toString("base64");
   const signed = await wallet.sign(unsigned);
-  const signature = await connection.sendRawTransaction(Buffer.from(signed, "base64"), {
-    skipPreflight: false,
-    maxRetries: 3,
-  });
-  const result = await connection.confirmTransaction({ signature, ...window }, "confirmed");
-  if (result.value.err) throw new Error(`Transaction failed: ${JSON.stringify(result.value.err)}`);
-  return signature;
+  try {
+    const signature = await connection.sendRawTransaction(Buffer.from(signed, "base64"), {
+      skipPreflight: false,
+      maxRetries: 3,
+    });
+    const result = await connection.confirmTransaction({ signature, ...window }, "confirmed");
+    if (result.value.err) throw new Error(`Transaction failed: ${JSON.stringify(result.value.err)}`);
+    return signature;
+  } catch (error) {
+    throw new Error(friendlyTxError(error));
+  }
 }
 
 export type ClockInResult = { signature: string; reward: number; streak: number; rewarded: boolean };

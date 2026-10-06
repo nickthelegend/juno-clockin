@@ -78,7 +78,13 @@ export function ClockInCard({ compact = false }: { compact?: boolean }) {
         </Animated.View>
         <View style={{ flex: 1 }}>
           <Text style={styles.streak}>
-            {!wallet.address ? "Start a streak" : daily.state.loading && !data ? "…" : `${streak}-day streak`}
+            {!wallet.address
+              ? "Start a streak"
+              : daily.state.loading && !data
+                ? "…"
+                : streak === 0
+                  ? "No streak yet"
+                  : `${streak}-day streak`}
           </Text>
           <Text style={styles.sub}>
             {!wallet.address

@@ -23,6 +23,9 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 
 import { CoinArt, Identicon } from "../../components/art";
 import { CommentsSheet } from "../../components/CommentsSheet";
+import { BoostSheet, type BoostTarget } from "../../components/BoostSheet";
+import { useClockIn } from "../../lib/clockinContext";
+import Svg3, { Path as Path3 } from "react-native-svg";
 import { HeartBurst } from "../../components/HeartBurst";
 import { Handle } from "../../components/Handle";
 import {
@@ -104,6 +107,8 @@ export default function ReelsScreen() {
   const [muted, setMuted] = useState(true);
   const [trade, setTrade] = useState<{ coin: Coin; side: "buy" | "sell" } | null>(null);
   const [talking, setTalking] = useState<Coin | null>(null);
+  const [boosting, setBoosting] = useState<BoostTarget | null>(null);
+  const daily = useClockIn();
   const [toast, setToast] = useState<string | null>(null);
   /** Comments posted from this screen, so the rail's count moves without a refetch. */
   const [extraComments, setExtraComments] = useState<Record<string, number>>({});
@@ -120,7 +125,7 @@ export default function ReelsScreen() {
 
   const insets = useSafeAreaInsets();
   const TAB_H = useTabBarHeight().height;
-  const sheetOpen = trade !== null || talking !== null;
+  const sheetOpen = trade !== null || talking !== null || boosting !== null;
 
   // Light status bar while Reels is on screen. The app's is dark for its
   // light pages, and over full-bleed night video the clock and signal simply
@@ -178,6 +183,10 @@ export default function ReelsScreen() {
               extraComments={extraComments[item.address] ?? 0}
               onTrade={(side) => setTrade({ coin: item, side })}
               onComments={() => setTalking(item)}
+              boosted={daily.boosts.get(item.address)?.amount ?? 0}
+              onBoost={() =>
+                setBoosting({ coinMint: item.address, creator: item.creator.wallet, name: item.name, symbol: item.symbol })
+              }
               onShare={async () => {
                 const outcome = await shareCoin(item);
                 if (outcome === "copied") flash("Link copied");
@@ -229,6 +238,8 @@ export default function ReelsScreen() {
         />
       ) : null}
 
+      <BoostSheet target={boosting} onClose={() => setBoosting(null)} bottomInset={TAB_H} />
+
       <CommentsSheet
         visible={talking !== null}
         onClose={() => setTalking(null)}
@@ -262,6 +273,8 @@ function Reel({
   onShare,
   onOpenCoin,
   onOpenCreator,
+  onBoost,
+  boosted,
 }: {
   coin: Coin;
   width: number;
@@ -277,6 +290,8 @@ function Reel({
   onShare: () => void;
   onOpenCoin: () => void;
   onOpenCreator: () => void;
+  onBoost: () => void;
+  boosted: number;
 }) {
   const uri = juno.media(coin.media.url);
   const poster = juno.still(coin.media);
@@ -387,6 +402,18 @@ function Reel({
           onPress={onComments}
         >
           <ReplyBubble size={30} />
+        </RailButton>
+
+        <RailButton label={boosted > 0 ? count(Math.round(boosted)) : "Boost"} accessibilityLabel="Boost with SKR" onPress={onBoost}>
+          <Svg3 width={30} height={30} viewBox="0 0 24 24">
+            <Path3
+              d="M13.2 2.5 4.8 13.4h6l-1.1 8.1 8.5-11h-6.1l1.1-8z"
+              fill={boosted > 0 ? theme.colors.lime : "none"}
+              stroke="#FFFFFF"
+              strokeWidth={1.8}
+              strokeLinejoin="round"
+            />
+          </Svg3>
         </RailButton>
 
         <RailButton label="Share" accessibilityLabel="Share" onPress={onShare}>
