@@ -2,7 +2,7 @@
   "expo": {
     "name": "Juno",
     "slug": "juno",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -19,7 +19,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "app.launch.juno",
-      "versionCode": 110
+      "versionCode": 120
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,6 +31,12 @@
       "expo-secure-store",
       "expo-web-browser",
       [
+        "expo-notifications",
+        {
+          "color": "#D6FF3D"
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Juno uses your photos and videos so you can launch them as a post or a reel."
@@ -40,6 +46,6 @@
     ],
     "scheme": "juno",
     "backgroundColor": "#D3E3CB",
-    "description": "Every post is a market: photos and reels launch their own Meteora bonding curves on Solana."
+    "description": "Every post is a market. Clock in daily on Solana, earn SKR, and back the posts you believe in."
   }
 }

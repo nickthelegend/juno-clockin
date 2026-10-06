@@ -13,6 +13,22 @@ import { count, progressLabel } from "../lib/markets";
 import { useFollow, useLike } from "../lib/social";
 import { money, since } from "../lib/useApi";
 import { theme } from "../theme";
+import Svg2, { Path as Path2 } from "react-native-svg";
+
+/** A lightning bolt: the SKR boost. Filled once a post has been boosted. */
+function BoltGlyph({ filled }: { filled: boolean }) {
+  return (
+    <Svg2 width={22} height={22} viewBox="0 0 24 24">
+      <Path2
+        d="M13.2 2.5 4.8 13.4h6l-1.1 8.1 8.5-11h-6.1l1.1-8z"
+        fill={filled ? theme.colors.ink : "none"}
+        stroke={theme.colors.text}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+      />
+    </Svg2>
+  );
+}
 
 /**
  * One post in the feed — which is one market.
@@ -39,6 +55,8 @@ export function FeedCard({
   onShare,
   onPlay,
   onOpenCreator,
+  onBoost,
+  boosted = 0,
   extraComments = 0,
 }: {
   coin: Coin;
@@ -51,6 +69,10 @@ export function FeedCard({
   onShare: () => void;
   onPlay: () => void;
   onOpenCreator: () => void;
+  /** Spend SKR backing this post. */
+  onBoost?: () => void;
+  /** SKR boosted into this post so far, read from the treasury's history. */
+  boosted?: number;
   extraComments?: number;
 }) {
   const like = useLike(coin);
@@ -190,6 +212,15 @@ export function FeedCard({
           </View>
         </Tappable>
 
+        {onBoost ? (
+          <Tappable onPress={onBoost} to={0.86} accessibilityRole="button" accessibilityLabel="Boost with SKR">
+            <View style={[styles.action, boosted > 0 ? styles.boostOn : null]}>
+              <BoltGlyph filled={boosted > 0} />
+              {boosted > 0 ? <Text style={styles.boostText}>{count(Math.round(boosted))}</Text> : null}
+            </View>
+          </Tappable>
+        ) : null}
+
         <View style={{ flex: 1 }} />
 
         {coin.curve.graduated ? (
@@ -321,6 +352,14 @@ function ArtCover({ seed, symbol, name }: { seed: string; symbol: string; name: 
 }
 
 const styles = StyleSheet.create({
+  boostOn: {
+    backgroundColor: theme.colors.lime,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginVertical: -3,
+  },
+  boostText: { fontSize: 13, fontWeight: "800", color: theme.colors.onLime },
   card: {
     backgroundColor: theme.colors.surface,
     paddingBottom: 18,

@@ -8,6 +8,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ThemeProvider } from "styled-components/native";
 
 import { WalletProvider } from "../lib/wallet";
+import { ClockInProvider } from "../lib/clockinContext";
 import { theme } from "../theme";
 
 /**
@@ -28,6 +29,7 @@ export default function RootLayout() {
     <ThemeProvider theme={theme}>
       <SafeAreaProvider>
         <WalletProvider>
+        <ClockInProvider>
           <StatusBar style="dark" />
           <Stack
             screenOptions={{
@@ -42,6 +44,7 @@ export default function RootLayout() {
             <Stack.Screen name="trader/[wallet]" />
             <Stack.Screen name="post/[id]" />
           </Stack>
+        </ClockInProvider>
         </WalletProvider>
       </SafeAreaProvider>
     </ThemeProvider>

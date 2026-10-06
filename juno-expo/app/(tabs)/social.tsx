@@ -5,6 +5,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 
 import { CoinArt } from "../../components/art";
+import { BoostSheet, type BoostTarget } from "../../components/BoostSheet";
+import { ClockInCard } from "../../components/ClockInCard";
+import { useClockIn } from "../../lib/clockinContext";
 import { CommentsSheet } from "../../components/CommentsSheet";
 import { FeedCard, type Buyers } from "../../components/FeedCard";
 import { Button, Placeholder, Skeleton } from "../../components/kit";
@@ -72,6 +75,8 @@ export default function SocialScreen() {
     [scope, wallet.address],
   );
 
+  const daily = useClockIn();
+  const [boosting, setBoosting] = useState<BoostTarget | null>(null);
   const [trade, setTrade] = useState<Coin | null>(null);
   const [talking, setTalking] = useState<Coin | null>(null);
   const [extraComments, setExtraComments] = useState<Record<string, number>>({});
@@ -83,13 +88,19 @@ export default function SocialScreen() {
   }, []);
 
   const posts = useMemo(() => {
+    /*
+     * Boosted posts lead, by SKR received, then everything else newest first.
+     * The boost totals come from the treasury's on-chain history, so the order
+     * is the same on every phone and nobody can buy rank without paying.
+     */
+    const boostOf = (coin: Coin) => daily.boosts.get(coin.address)?.amount ?? 0;
     const all = [...(markets.data?.posts ?? [])].sort(
-      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
+      (a, b) => boostOf(b) - boostOf(a) || Date.parse(b.createdAt) - Date.parse(a.createdAt),
     );
     if (scope !== "following") return all;
     const set = follows.data;
     return set ? all.filter((coin) => set.has(coin.creator.wallet)) : [];
-  }, [markets.data?.posts, scope, follows.data]);
+  }, [markets.data?.posts, scope, follows.data, daily.boosts]);
 
   const reels = useMemo(
     () => (markets.data?.posts ?? []).filter((coin) => coin.format === "reel" && coin.media.kind === "video"),
@@ -125,6 +136,7 @@ export default function SocialScreen() {
     invalidateMarkets();
     markets.refresh();
     record.refresh();
+    void daily.refresh();
   };
 
   return (
@@ -199,6 +211,8 @@ export default function SocialScreen() {
             />
           }
         >
+          {scope === "everyone" ? <ClockInCard /> : null}
+
           {reels.length > 0 && scope === "everyone" ? (
             <ScrollView
               horizontal
@@ -267,6 +281,15 @@ export default function SocialScreen() {
                 }}
                 onPlay={() => router.push(`/(tabs)/reels?start=${coin.address}` as never)}
                 onOpenCreator={() => router.push(`/trader/${coin.creator.wallet}` as never)}
+                boosted={daily.boosts.get(coin.address)?.amount ?? 0}
+                onBoost={() =>
+                  setBoosting({
+                    coinMint: coin.address,
+                    creator: coin.creator.wallet,
+                    name: coin.name,
+                    symbol: coin.symbol,
+                  })
+                }
               />
             ))
           )}
@@ -278,6 +301,8 @@ export default function SocialScreen() {
           <Text style={styles.toastText}>{toast}</Text>
         </View>
       ) : null}
+
+      <BoostSheet target={boosting} onClose={() => setBoosting(null)} />
 
       {trade ? (
         <QuickTrade
