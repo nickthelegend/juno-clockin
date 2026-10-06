@@ -77,3 +77,8 @@ __pycache__/
 
 # Impeccable engine binary — downloaded per platform on first run
 .claude/skills/impeccable/scripts/bin/
+
+# CLOCK IN: release APKs are built here but never committed
+/clockin/apk/
+*.apk
+*.aab
