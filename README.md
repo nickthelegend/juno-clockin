@@ -9,29 +9,51 @@ The same machinery issues **pre-IPO and stock trackers**: curves shaped like
 issuances and marked against a real reference — **Tessera** T-tokens for
 OpenAI, Kalshi and SpaceX, **Pyth** equity feeds for AAPL, MSFT, NVDA, TSLA.
 
-Built for the Solana **STOCKLANA** hackathon.
+**For Seeker, Juno adds a daily habit on top:** clock in once a day with one
+signature (Seed Vault through Mobile Wallet Adapter), earn **SKR**, and spend it
+**boosting** the posts you believe in. 80% of a boost goes to the creator, 20%
+refills the reward treasury, and boosted posts lead everyone's feed. The streak
+lives on-chain, read back from your own transaction memos.
+
+Juno was first built by **robinbanter** for the Solana STOCKLANA hackathon
+(Sep 2026). This repository is its **Solana Mobile CLOCK IN** edition: the
+Mobile Wallet Adapter path, the on-chain daily clock-in, SKR rewards and
+boosts, Seeker Genesis Token detection, streak reminders and a signed release
+APK. See [clockin/SUBMISSION.md](clockin/SUBMISSION.md) and [HANDOFF.md](HANDOFF.md).
 
 | | |
 |---|---|
-| **Try it** | **https://juno-app-chi.vercel.app** — the Expo app's web build. Open it on a phone, or on a laptop it runs in a phone-width frame. |
-| **Download** | **[Release v1.1.0](https://github.com/robinbanter/juno/releases/tag/v1.1.0)**: the Android APK (arm64) and an iOS Simulator build, both signing with a Privy embedded wallet, plus the demo film. |
-| **Network** | The app runs on Solana **devnet**: no real money, and Profile → *Get devnet SOL* funds a new wallet. The four curve presets are also **[live on mainnet](#live-on-mainnet)**. |
-| **API** | https://juno-web-production-bd2e.up.railway.app/api/juno/… |
-| **Landing** | https://juno-landing-beta.vercel.app |
+| **Repo** | https://github.com/nickthelegend/juno-clockin |
+| **Android APK** | Built locally as `juno-clockin.apk` (release, arm64-v8a + x86_64). Install steps below; its sha256 is in [clockin/SUBMISSION.md](clockin/SUBMISSION.md). |
+| **Network** | Solana **devnet** only: no real money. A new wallet is funded from Juno's devnet faucet on its first clock-in. |
+| **SKR** | Devnet stand-in mint `dSKRJ7P98rwP8NsDQnS1CzZDrgJXpL3KjwN7N8FABHN` (6 decimals, like mainnet SKR `SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3`), labelled **SKR (devnet stand-in)** in the app. |
+| **API** | https://juno-web-production-bd2e.up.railway.app/api/juno/… (the existing devnet deployment; the CLOCK IN features talk to devnet directly and need nothing new from it) |
+| **Web build** | https://juno-app-chi.vercel.app (the STOCKLANA web build; it predates the CLOCK IN features) |
 | **Deep dive** | [JUNO.md](JUNO.md) — on-chain proof, the DBC findings, what is and is not built |
 
 ## Install it
 
-- **Android:** download `juno-v1.1.0-android.apk` from the
-  [release](https://github.com/robinbanter/juno/releases/tag/v1.1.0), allow
-  installs from your browser, and open it. Profile → *Continue with email*
-  signs in with Privy and creates your Solana wallet.
-- **iOS Simulator (Mac with Xcode):** download
-  `juno-v1.1.0-ios-simulator.zip`, unzip it, then run
-  `xcrun simctl install booted Juno.app && xcrun simctl launch booted app.launch.juno`.
-- **Anywhere else:** the web build at https://juno-app-chi.vercel.app.
+- **Android (Seeker or any phone/emulator):** `adb install -r juno-clockin.apk`,
+  or open the APK on the phone and allow installs from that source. Tap the
+  clock-in card, choose **Connect wallet** (Seed Vault, Phantom, Solflare via
+  Mobile Wallet Adapter), or **Dev wallet (devnet only)** on a phone without a
+  wallet app.
+- **iOS Simulator:** build from source (below). Mobile Wallet Adapter is
+  Android-only, so iOS offers email (Privy) or the dev wallet.
 
-## Sixty seconds in the app
+## The daily loop
+
+1. **Clock in** — the dark card at the top of the feed. One signature records
+   `juno:clockin:v1:<day>:s<n>` in a Memo and mints the day's reward:
+   10 dSKR on day one, +5 a day up to 40 on day seven. Holders of a **Seeker
+   Genesis Token** (checked read-only on mainnet) earn double.
+2. **Boost** — the ⚡ on every post, reel and coin page. Spend 5, 25 or 100 dSKR;
+   80% goes to the creator, 20% to the treasury that pays tomorrow's rewards.
+   The feed orders boosted posts first, by what the treasury actually received.
+3. **Come back** — a local notification the next morning says what tomorrow's
+   clock-in pays, and one at 20:00 warns if today's streak is about to lapse.
+
+## Sixty seconds in the app (the original Juno)
 
 1. **Feed** — posts, each one a market: worth, likes, replies, share, **Buy**.
    "Bought by" is read from real swaps.

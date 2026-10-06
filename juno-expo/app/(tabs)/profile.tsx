@@ -8,6 +8,8 @@ import { AreaChart, RANGES, withinRange, type Range } from "../../components/Are
 import { CoinArt, Identicon } from "../../components/art";
 import { Tappable } from "../../components/Press";
 import { WalletCard } from "../../components/WalletCard";
+import { ClockInCard } from "../../components/ClockInCard";
+import { MWA_AVAILABLE } from "../../lib/mwa";
 import { Handle } from "../../components/Handle";
 import {
   Body,
@@ -147,9 +149,11 @@ export default function ProfileScreen() {
         <Placeholder
           title="No wallet yet"
           detail={
-            PRIVY_ENABLED
-              ? "Sign in with your email. Privy creates a Solana wallet for you, with no seed phrase."
-              : "Create one to trade and to launch your own coins. No sign-up."
+            MWA_AVAILABLE
+              ? "Connect Seed Vault or any Solana wallet app with Mobile Wallet Adapter, or sign in with email."
+              : PRIVY_ENABLED
+                ? "Sign in with your email, or use a devnet dev wallet. Mobile Wallet Adapter is Android-only."
+                : "Create one to trade and to launch your own coins. No sign-up."
           }
           action={
             // Not `.then(portfolio.refresh)`: that refresh was captured before
@@ -157,7 +161,7 @@ export default function ProfileScreen() {
             // null landed last — "Holdings could not be read" on a wallet
             // created a second ago. The address change re-reads on its own.
             <Button
-              label={PRIVY_ENABLED ? "Continue with email" : "Create wallet"}
+              label="Connect wallet"
               onPress={() => void wallet.connect().catch(() => undefined)}
             />
           }
@@ -186,8 +190,16 @@ export default function ProfileScreen() {
           <Heading>
             <Handle wallet={wallet.address} />
           </Heading>
-          <Caption>{wallet.mode === "local" ? "Device key · devnet" : "Privy wallet · devnet"}</Caption>
+          <Caption>
+            {wallet.mode === "mwa"
+              ? "Mobile Wallet Adapter · devnet"
+              : wallet.mode === "privy"
+                ? "Privy wallet · devnet"
+                : "Dev wallet (devnet only)"}
+          </Caption>
         </Identity>
+
+        <ClockInCard compact />
 
         <WalletCard address={wallet.address} />
 
@@ -366,10 +378,20 @@ export default function ProfileScreen() {
         ) : (
           <Card>
             <Body muted>
-              {Platform.OS === "web"
-                ? "This wallet lives in this browser's storage and signs here. It is a devnet key and is not recoverable — clearing site data deletes it, and Juno never sees it."
-                : "This wallet lives in the device keychain and signs on-device. It is a devnet key and is not recoverable — Juno never sees it."}
+              {wallet.mode === "mwa"
+                ? "Connected through Mobile Wallet Adapter. Your wallet app (Seed Vault on Seeker) holds the key and approves every signature; Juno never sees it."
+                : wallet.mode === "privy"
+                  ? "A Privy embedded wallet: Privy holds the key behind your email sign-in, and it survives a reinstall."
+                  : Platform.OS === "web"
+                    ? "This wallet lives in this browser's storage and signs here. It is a devnet key and is not recoverable — clearing site data deletes it, and Juno never sees it."
+                    : "Dev wallet: a devnet key in this device's keychain that signs on-device. It is not recoverable and is for testing only — Juno never sees it."}
             </Body>
+            <Button
+              label={wallet.mode === "local" ? "Delete dev wallet" : "Disconnect"}
+              variant="quiet"
+              style={{ marginTop: 12 }}
+              onPress={() => void wallet.disconnect()}
+            />
           </Card>
         )}
       </ScrollView>

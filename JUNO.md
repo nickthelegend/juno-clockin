@@ -8,7 +8,7 @@ creator earns trading fees on their own work instead of ad revenue. When a pool
 raises its `migrationQuoteThreshold` it graduates into a **Meteora DAMM v2**
 pool and becomes a normal AMM market that outlives the app.
 
-Built for the Solana **STOCKLANA** hackathon.
+First built for the Solana **STOCKLANA** hackathon (Sep 2026); this repository is the **Solana Mobile CLOCK IN** edition, see [clockin/SUBMISSION.md](clockin/SUBMISSION.md).
 
 There are two surfaces. **`juno-expo/`** is the mobile app and the one to look
 at. The **Next.js app** at the repo root serves the web UI and the API the phone
