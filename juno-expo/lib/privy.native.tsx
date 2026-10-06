@@ -58,7 +58,7 @@ export function usePrivyBridge(): PrivyBridge {
   // Release builds only surface console.error, so the wallet's progress is
   // logged at that level: it is the one thing worth reading when sign-in stalls.
   useEffect(() => {
-    console.error(`[juno:privy] user=${user ? "yes" : "no"} solana=${solana.status}${walletError ? ` error=${walletError}` : ""}`);
+    (__DEV__ ? console.log : console.error)(`[juno:privy] user=${user ? "yes" : "no"} solana=${solana.status}${walletError ? ` error=${walletError}` : ""}`);
   }, [user, solana.status, walletError]);
 
   // `createOnLogin` covers a new sign-in. A user who signed in before the

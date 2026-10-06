@@ -8,6 +8,15 @@ import nacl from "tweetnacl";
 import { juno } from "./api";
 import { PrivyRoot, usePrivyBridge } from "./privy";
 import { SignInSheet } from "../components/SignInSheet";
+import { ConnectSheet, type ConnectChoice } from "../components/ConnectSheet";
+import {
+  cachedMwaAddress,
+  mwaConnect,
+  mwaDisconnect,
+  mwaErrorMessage,
+  mwaSignMessage,
+  mwaSignTransaction,
+} from "./mwa";
 
 /**
  * The wallet.
@@ -16,7 +25,14 @@ import { SignInSheet } from "../components/SignInSheet";
  * that second half: it holds a signing key, turns base64 transaction bytes into
  * a signed transaction, and hands the result back to be submitted.
  *
- * ## Two backends, and why both exist
+ * ## CLOCK IN: Mobile Wallet Adapter first
+ *
+ * On Android the first option is **Mobile Wallet Adapter** (`lib/mwa.ts`):
+ * Seed Vault on a Seeker, or any installed Solana wallet. `connect()` now
+ * opens a chooser (`ConnectSheet`) — wallet, email, or a labelled devnet dev
+ * wallet — and resolves with whichever address the person picked.
+ *
+ * ## The other two backends, and why both exist
  *
  * **Privy embedded wallet** is the intended one. It gives someone a Solana
  * wallet without installing anything, which is the only option that works in an
@@ -40,7 +56,7 @@ import { SignInSheet } from "../components/SignInSheet";
  * rather than implying a custody story it does not have.
  */
 
-export type WalletMode = "privy" | "local";
+export type WalletMode = "mwa" | "privy" | "local";
 
 export type WalletState = {
   address: string | null;
@@ -125,7 +141,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 function Wallet({ children }: { children: React.ReactNode }) {
   const privy = usePrivyBridge();
   const [keypair, setKeypair] = useState<Keypair | null>(null);
+  const [mwaAddress, setMwaAddress] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [choosing, setChoosing] = useState(false);
+  const [chooseError, setChooseError] = useState<string | null>(null);
   const [signing, setSigning] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   // The `connect()` call waiting on the sign-in sheet.
@@ -135,9 +154,10 @@ function Wallet({ children }: { children: React.ReactNode }) {
   // and their position history.
   useEffect(() => {
     let cancelled = false;
-    loadLocalKeypair().then((existing) => {
+    Promise.all([loadLocalKeypair(), cachedMwaAddress()]).then(([existing, mwa]) => {
       if (cancelled) return;
       setKeypair(existing);
+      setMwaAddress(mwa);
       setLoaded(true);
     });
     return () => {
@@ -145,7 +165,8 @@ function Wallet({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const address = privy.address ?? keypair?.publicKey.toBase58() ?? null;
+  const address = mwaAddress ?? privy.address ?? keypair?.publicKey.toBase58() ?? null;
+  const mode: WalletMode = mwaAddress ? "mwa" : privy.address ? "privy" : "local";
   const ready = loaded && privy.ready;
 
   // Privy has made the wallet: hand the address to whoever asked for it.
@@ -158,22 +179,50 @@ function Wallet({ children }: { children: React.ReactNode }) {
 
   const connect = useCallback(async () => {
     if (address) return address;
-    if (privy.enabled) {
-      pending.current?.reject(new Error("Sign-in replaced"));
-      return new Promise<string>((resolve, reject) => {
-        pending.current = { resolve, reject };
-        setSigningIn(true);
-      });
-    }
-    const existing = await loadLocalKeypair();
-    if (existing) {
-      setKeypair(existing);
-      return existing.publicKey.toBase58();
-    }
-    const created = await createLocalKeypair();
-    setKeypair(created);
-    return created.publicKey.toBase58();
-  }, [address, privy.enabled]);
+    pending.current?.reject(new Error("Sign-in replaced"));
+    return new Promise<string>((resolve, reject) => {
+      pending.current = { resolve, reject };
+      setChooseError(null);
+      setChoosing(true);
+    });
+  }, [address]);
+
+  /** One option from the chooser. Resolves the waiting `connect()` on success. */
+  const choose = useCallback(
+    async (choice: ConnectChoice) => {
+      setChooseError(null);
+      try {
+        if (choice === "mwa") {
+          const connected = await mwaConnect();
+          setMwaAddress(connected);
+          setChoosing(false);
+          pending.current?.resolve(connected);
+          pending.current = null;
+          return;
+        }
+        if (choice === "privy") {
+          // The Privy sheet takes over; its address effect resolves `pending`.
+          setChoosing(false);
+          setSigningIn(true);
+          return;
+        }
+        const keypairNow = (await loadLocalKeypair()) ?? (await createLocalKeypair());
+        setKeypair(keypairNow);
+        setChoosing(false);
+        pending.current?.resolve(keypairNow.publicKey.toBase58());
+        pending.current = null;
+      } catch (error) {
+        setChooseError(choice === "mwa" ? mwaErrorMessage(error) : String(error));
+      }
+    },
+    [],
+  );
+
+  const cancelChoose = useCallback(() => {
+    setChoosing(false);
+    pending.current?.reject(new Error("Sign-in cancelled"));
+    pending.current = null;
+  }, []);
 
   const cancelSignIn = useCallback(() => {
     setSigningIn(false);
@@ -182,16 +231,29 @@ function Wallet({ children }: { children: React.ReactNode }) {
   }, []);
 
   const disconnect = useCallback(async () => {
+    if (mwaAddress) {
+      await mwaDisconnect();
+      setMwaAddress(null);
+      return;
+    }
     if (privy.address) await privy.logout();
     await store.remove(LOCAL_KEY);
     setKeypair(null);
-  }, [privy]);
+  }, [privy, mwaAddress]);
 
   const sign = useCallback(
     async (base64: string) => {
       setSigning(true);
       try {
         const transaction = Transaction.from(Buffer.from(base64, "base64"));
+        if (mwaAddress) {
+          try {
+            const signed = await mwaSignTransaction(transaction);
+            return signed.serialize().toString("base64");
+          } catch (error) {
+            throw new Error(mwaErrorMessage(error));
+          }
+        }
         if (privy.address) {
           const signed = await privy.signTransaction(transaction);
           return signed.serialize().toString("base64");
@@ -206,11 +268,12 @@ function Wallet({ children }: { children: React.ReactNode }) {
         setSigning(false);
       }
     },
-    [keypair, privy],
+    [keypair, privy, mwaAddress],
   );
 
   const signMessage = useCallback(
     async (text: string) => {
+      if (mwaAddress) return bs58.encode(await mwaSignMessage(text));
       if (privy.address) {
         const signature = await privy.signMessage(Buffer.from(text, "utf8").toString("base64"));
         return bs58.encode(Buffer.from(signature, "base64"));
@@ -219,13 +282,13 @@ function Wallet({ children }: { children: React.ReactNode }) {
       if (!signer) throw new Error("No wallet to sign with");
       return bs58.encode(nacl.sign.detached(new TextEncoder().encode(text), signer.secretKey));
     },
-    [keypair, privy],
+    [keypair, privy, mwaAddress],
   );
 
   const value = useMemo<WalletState>(
     () => ({
       address,
-      mode: privy.address ? "privy" : "local",
+      mode,
       ready,
       signing,
       sign,
@@ -233,12 +296,19 @@ function Wallet({ children }: { children: React.ReactNode }) {
       connect,
       disconnect,
     }),
-    [address, privy.address, ready, signing, sign, signMessage, connect, disconnect],
+    [address, mode, ready, signing, sign, signMessage, connect, disconnect],
   );
 
   return (
     <WalletContext.Provider value={value}>
       {children}
+      <ConnectSheet
+        visible={choosing}
+        onClose={cancelChoose}
+        onChoose={choose}
+        privyEnabled={privy.enabled}
+        error={chooseError}
+      />
       {privy.enabled ? <SignInSheet visible={signingIn} onClose={cancelSignIn} privy={privy} /> : null}
     </WalletContext.Provider>
   );
