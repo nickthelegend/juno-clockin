@@ -73,7 +73,30 @@ is a plain `adb`/`uiautomator` tap-by-text loop.
 
 ## Current APK
 
-1.3.2 (versionCode 124), sha256 `041f3ce80e59eef8acef380a2c2e932ea3b348a34c6ab1a2b97d2bbf2fc62e34`, signed with the same keystore (cert `984c2ec7…a3f6`), uploaded to release `clockin-v1` with `--clobber`; the download re-hashes to the same value. The audit below was done on 1.2.1; 1.3.0–1.3.2 add only JS (the profile, clearer boost labels, the bottom-sheet fix) and keeps the same manifest (0 hits for the removed permissions, 0 for `localhost:3000`).
+1.4.0 (versionCode 125), sha256 `aee12a53c62d84e2ef255c6ade78bb6888b49112036e96795e95106bffc1056b`, signed with the same keystore (cert `984c2ec7…a3f6`), uploaded to release `clockin-v1` with `--clobber`; the download re-hashes to the same value. The audit below was done on 1.2.1; 1.3.0–1.4.0 add only JS (profile, boost labels, bottom-sheet fix, polish round) and keeps the same manifest (0 hits for the removed permissions, 0 for `localhost:3000`).
+
+## Polish round 1.4.0 (Oct 7, branch `polish`, merged)
+
+- **One visual system:** the feed moved onto the sage canvas used by
+  Profile, Trade and creator pages; cards stay white; Reels stays dark.
+- **Compact clock-in:** a slim strip with one "Clock in · +N dSKR" button
+  while today is open; once clocked in, a streak story bubble leads the
+  stories row. The full card and the reward rules live in a sheet.
+- **Prices:** subscript notation (`$0.0₆990`, which rendered as `$0.0,990`
+  in bold) replaced by plain decimals (`$0.00000099`) everywhere, plus the
+  trade sheet's typed amounts. `juno-expo` now has `npm test` (vitest,
+  16 tests: formatter and streak/reward maths).
+- **Profile identity:** "Your profile" title and a "Choose a name" prompt
+  instead of a raw address; gradient monogram avatars for every wallet;
+  zero stats become actions (First post, Find creators, Boost a post).
+- **P1:** labelled transaction rows with Copy and Solscan on clock-in, boost
+  and trade success; 12 pt type floor; haptics on tabs and buttons; 44 pt
+  buttons on the profile; skeletons visible on sage; offline copy on the feed
+  error state; the trade sheet clears the amount when switching Buy/Sell
+  (a SOL amount was read as a token count). The 20:00 streak-at-risk
+  reminder already existed.
+- **Census:** `clockin/screens/all/` (30 screens) with `INDEX.md`.
+- Regression on devnet: boost 5 dSKR, tx `GX9v2LRmiXCMDNFn1rZXxSi4earqExqWp69bz8HepizxL9YJtspzna1euYwJ3VEUPiyjba5i1n4PTh21uyk79FT`.
 
 ## Instagram-style profile (Oct 7, branch `profile-ig`, merged)
 
