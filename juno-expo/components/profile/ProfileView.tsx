@@ -372,9 +372,12 @@ export function ProfileView({
             <HighlightBubble label={SKR_SHORT} tone="ink" onPress={() => setSheet("skr")}>
               <Text style={styles.bubbleBig}>{skrBalance === null ? "—" : formatSkr(skrBalance)}</Text>
             </HighlightBubble>
-            <HighlightBubble label="Boosts" tone="soft" onPress={() => setSheet("boosts")}>
-              <BoltGlyph size={22} color={theme.colors.ink} filled={boostTotal > 0} />
-              <Text style={styles.bubbleSmall}>{activity.data ? formatSkr(boostTotal) : "—"}</Text>
+            {/* The amount, not the count: the stats row above already counts boosts. */}
+            <HighlightBubble label="Boosted" tone="soft" onPress={() => setSheet("boosts")}>
+              <View style={{ alignItems: "center" }}>
+                <Text style={styles.bubbleAmount}>{activity.data ? formatSkr(boostTotal) : "—"}</Text>
+                <Text style={styles.bubbleUnit}>⚡ {SKR_SHORT}</Text>
+              </View>
             </HighlightBubble>
             {seekerMint ? (
               <HighlightBubble label="Seeker" tone="lime" onPress={() => setSheet("seeker")}>
@@ -550,7 +553,12 @@ export function ProfileView({
             </>
           ) : sheet === "boosts" ? (
             <>
-              <SheetTitle kicker="BOOSTS GIVEN" title={`${formatSkr(boostTotal)} ${SKR_SHORT} on ${boostsGiven.length} ${boostsGiven.length === 1 ? "post" : "posts"}`} />
+              <SheetTitle
+                kicker="BOOSTED"
+                title={`${formatSkr(boostTotal)} ${SKR_SHORT} across ${boostsGiven.reduce((n, b) => n + b.count, 0)} ${
+                  boostsGiven.reduce((n, b) => n + b.count, 0) === 1 ? "boost" : "boosts"
+                }`}
+              />
               {received && received.count > 0 ? (
                 <Text style={styles.sheetBody}>
                   Their posts have received {received.count} {received.count === 1 ? "boost" : "boosts"}, about{" "}
@@ -1053,6 +1061,8 @@ const styles = StyleSheet.create({
   bubble: { width: 58, height: 58, borderRadius: 29, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 2 },
   bubbleNumber: { fontSize: 15, fontWeight: "900" },
   bubbleBig: { fontSize: 16, fontWeight: "900", color: theme.colors.lime, fontVariant: ["tabular-nums"] },
+  bubbleAmount: { fontSize: 16, fontWeight: "900", color: theme.colors.ink, fontVariant: ["tabular-nums"] },
+  bubbleUnit: { fontSize: 9, fontWeight: "800", color: theme.colors.ink, marginTop: -1 },
   bubbleSmall: { fontSize: 12, fontWeight: "800", color: theme.colors.ink },
   bubbleLabel: { fontSize: 11, fontWeight: "600", color: theme.colors.text },
   tabBar: {
