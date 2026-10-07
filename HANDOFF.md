@@ -73,7 +73,37 @@ is a plain `adb`/`uiautomator` tap-by-text loop.
 
 ## Current APK
 
-1.4.0 (versionCode 125), sha256 `aee12a53c62d84e2ef255c6ade78bb6888b49112036e96795e95106bffc1056b`, signed with the same keystore (cert `984c2ec7…a3f6`), uploaded to release `clockin-v1` with `--clobber`; the download re-hashes to the same value. The audit below was done on 1.2.1; 1.3.0–1.4.0 add only JS (profile, boost labels, bottom-sheet fix, polish round) and keeps the same manifest (0 hits for the removed permissions, 0 for `localhost:3000`).
+1.5.0 (versionCode 126), sha256 `1a27543bc97e764848cdce0cd0f5010caad252f8695c4f311712ec46b1fc4958`, signed with the same keystore (cert `984c2ec7…a3f6`), uploaded to release `clockin-v1` with `--clobber`; the download re-hashes to the same value. The audit below was done on 1.2.1; 1.3.0–1.5.0 add JS only, plus the CAMERA permission back in 1.5.0 for the composer (profile, boost labels, bottom-sheet fix, polish, post composer) and keeps the same manifest (0 hits for the removed permissions, 0 for `localhost:3000`).
+
+## Post composer 1.5.0 (Oct 7, branch `post-composer`, merged)
+
+The Post flow is now a three-step composer (Media, Details, Launch) with a
+progress bar, a sticky CTA and swipeable pages that refuse to skip ahead of
+what is filled in.
+
+- **Media:** Photo or Reel; the library opens on arrival; posts get the
+  native square crop; full-bleed preview with crop corners and Change.
+  Camera is offered on Android only (CAMERA permission is back in the
+  manifest; RECORD_AUDIO stays blocked): expo-image-picker opens the iOS
+  camera without checking it exists and crashes the Simulator.
+- **Details:** large Name input, `$` ticker suggested from the name with live
+  availability against every existing market, caption counter, inline
+  validation, and the post drawn as the feed will draw it.
+- **Launch:** the four presets as cards, each drawing its real 16-segment
+  curve in on select, with a best-for line and a lime border, glow and
+  check; an Advanced disclosure; a summary with the ≈ 0.027 SOL fee and your
+  balance; "Connect wallet to launch" and "Get devnet SOL" when needed.
+- **Launch moment:** progress sheet (upload, token details, approval 1 of 2,
+  approval 2 of 2, go live) with Copy / Solscan rows; friendly errors for a
+  declined signature, no network or too little SOL; retry relists without
+  re-signing. Then a success screen with a lime burst, View your market and
+  Share.
+- **Verified with a real devnet launch** from the simulator (dev wallet):
+  $LEMON, curve tx `2t4qY33Fw6sLN9SzqvwRrhkcNkTtKqWHY3Vi4vT1zUfXf1Urgg8SFsqKDvvQnQzeg41XDnzdoExhHUVEULpjH49L`,
+  pool tx `7292NfMcsXt5xXQVAVw8WksggZhGjn3Hnvi2saof2SwHv7BtNB6aVaoWGQbGSkNzAoyizW2rroUyZeR1Jt8CL1S`;
+  the market opened from the success screen. It is now a real post in the
+  shared devnet feed.
+- Screens: `clockin/screens/post-composer/` (before and after), census 19/20.
 
 ## Polish round 1.4.0 (Oct 7, branch `polish`, merged)
 
