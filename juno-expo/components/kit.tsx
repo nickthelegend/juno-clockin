@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import React from "react";
 import { ActivityIndicator, Animated, Pressable, type StyleProp, type ViewStyle } from "react-native";
 import Svg, { Path } from "react-native-svg";
@@ -274,7 +275,14 @@ export function Button({
 
   return (
     <Touchable
-      onPress={inactive ? undefined : onPress}
+      onPress={
+        inactive
+          ? undefined
+          : () => {
+              void Haptics.selectionAsync().catch(() => undefined);
+              onPress?.();
+            }
+      }
       onPressIn={inactive ? undefined : onPressIn}
       onPressOut={inactive ? undefined : onPressOut}
       accessibilityRole="button"

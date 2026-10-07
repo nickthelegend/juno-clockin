@@ -8,6 +8,7 @@ import { useClockIn } from "../lib/clockinContext";
 import { explorerTx, SKR_LABEL, SKR_SHORT } from "../lib/solana";
 import { useWallet } from "../lib/wallet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { TxRow } from "./TxRow";
 import { theme } from "../theme";
 import { formatSkr } from "./ClockInCard";
 
@@ -73,9 +74,8 @@ export function BoostSheet({
   return (
     <BottomSheet visible={target !== null} onClose={onClose} dismissable={!busy}>
       <View style={[styles.sheet, { paddingBottom: 36 + Math.max(bottomInset, insets.bottom) }]}>
-        <Text style={styles.kicker}>BOOST WITH SKR</Text>
         <Text style={styles.title} numberOfLines={1}>
-          {target?.name ?? ""}
+          Boost {target?.name ?? ""}
         </Text>
         <Text style={styles.body}>
           {self
@@ -91,9 +91,7 @@ export function BoostSheet({
         {done ? (
           <View style={styles.done}>
             <Text style={styles.doneTitle}>Boosted +{amount} {SKR_SHORT}</Text>
-            <Text style={styles.link} onPress={() => void Linking.openURL(explorerTx(done))}>
-              View transaction on Solscan
-            </Text>
+            <TxRow signature={done} label={`Boost · ${amount} ${SKR_SHORT}`} />
             <Pressable onPress={onClose} style={styles.cta} accessibilityRole="button">
               <Text style={styles.ctaText}>Done</Text>
             </Pressable>
@@ -146,7 +144,7 @@ export function BoostSheet({
 
 const styles = StyleSheet.create({
   sheet: { gap: 12, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 36 },
-  kicker: { fontSize: 11, letterSpacing: 1.4, fontWeight: "800", color: theme.colors.muted },
+  kicker: { fontSize: 12, letterSpacing: 1.4, fontWeight: "800", color: theme.colors.muted },
   title: { fontSize: theme.type.title.size, fontWeight: "800", color: theme.colors.text },
   body: { fontSize: theme.type.label.size, lineHeight: 19, color: theme.colors.muted },
   meta: { fontSize: theme.type.caption.size, color: theme.colors.muted },
@@ -162,7 +160,7 @@ const styles = StyleSheet.create({
   },
   amountOn: { backgroundColor: theme.colors.ink, borderColor: theme.colors.ink },
   amountText: { fontSize: theme.type.title.size, fontWeight: "800", color: theme.colors.text },
-  amountUnit: { fontSize: 11, fontWeight: "700", color: theme.colors.muted },
+  amountUnit: { fontSize: 12, fontWeight: "700", color: theme.colors.muted },
   amountTextOn: { color: theme.colors.lime },
   cta: {
     flexDirection: "row",
@@ -178,5 +176,5 @@ const styles = StyleSheet.create({
   doneTitle: { fontSize: theme.type.lead.size, fontWeight: "800", color: theme.colors.pos, textAlign: "center" },
   link: { fontSize: theme.type.label.size, fontWeight: "700", color: theme.colors.focus, textAlign: "center" },
   error: { fontSize: theme.type.label.size, color: theme.colors.neg },
-  fine: { fontSize: 11, color: theme.colors.faint, textAlign: "center" },
+  fine: { fontSize: 12, color: theme.colors.faint, textAlign: "center" },
 });

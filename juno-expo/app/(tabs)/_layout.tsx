@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Tabs, usePathname, useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
 import { Animated, Platform, StyleSheet } from "react-native";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import styled from "styled-components/native";
@@ -56,7 +57,10 @@ export default function TabsLayout() {
         icon={Icon}
         active={pathname.startsWith(href.replace("/(tabs)", ""))}
         night={night}
-        onPress={() => router.push(href as never)}
+        onPress={() => {
+          void Haptics.selectionAsync().catch(() => undefined);
+          router.push(href as never);
+        }}
       />
     );
 
@@ -97,7 +101,14 @@ export default function TabsLayout() {
         name="post"
         options={{
           tabBarButton: () => (
-            <PostSlot open={creating} night={night} onPress={() => setCreating((on) => !on)} />
+            <PostSlot
+              open={creating}
+              night={night}
+              onPress={() => {
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+                setCreating((on) => !on);
+              }}
+            />
           ),
         }}
       />

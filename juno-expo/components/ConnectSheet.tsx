@@ -168,6 +168,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: theme.colors.ink,
   },
-  badgeText: { fontSize: 10, fontWeight: "700", color: theme.colors.onInk },
+  badgeText: { fontSize: 12, fontWeight: "700", color: theme.colors.onInk },
   error: { fontSize: theme.type.label.size, color: theme.colors.neg },
 });

@@ -88,7 +88,7 @@ export const theme = {
    * grotesque at 40px was drawn for 16px text and looks loose at this size.
    */
   type: {
-    micro: { size: 11, height: 14, tracking: 0.2 },
+    micro: { size: 12, height: 15, tracking: 0.2 },
     caption: { size: 12, height: 16, tracking: 0 },
     label: { size: 14, height: 19, tracking: -0.1 },
     body: { size: 16, height: 23, tracking: -0.1 },

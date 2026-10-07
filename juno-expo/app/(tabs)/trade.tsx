@@ -598,7 +598,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(214,255,61,0.14)",
   },
   introDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: theme.colors.lime },
-  introPillText: { fontSize: 11, fontWeight: "700", color: theme.colors.lime },
+  introPillText: { fontSize: 12, fontWeight: "700", color: theme.colors.lime },
   introTitle: { fontSize: 24, lineHeight: 28, fontWeight: "900", letterSpacing: -0.8, color: theme.colors.onInk },
   introBody: { fontSize: 14, lineHeight: 20, color: "rgba(243,247,238,0.72)" },
 
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: theme.colors.limeSoft,
   },
-  preBadgeText: { fontSize: 10, fontWeight: "900", letterSpacing: 0.6, color: theme.colors.onLime },
+  preBadgeText: { fontSize: 12, fontWeight: "900", letterSpacing: 0.6, color: theme.colors.onLime },
   badgeInk: { backgroundColor: theme.colors.ink },
   badgeInkText: { color: theme.colors.lime },
   badgeHeart: { backgroundColor: "rgba(255,45,111,0.12)" },
@@ -642,14 +642,14 @@ const styles = StyleSheet.create({
   },
   statRule: { width: StyleSheet.hairlineWidth, alignSelf: "stretch", backgroundColor: theme.colors.lineStrong, marginHorizontal: 10 },
   statValue: { fontSize: 17, fontWeight: "800", letterSpacing: -0.3, color: theme.colors.text, fontVariant: ["tabular-nums"] },
-  statLabel: { fontSize: 11, fontWeight: "600", color: theme.colors.muted },
+  statLabel: { fontSize: 12, fontWeight: "600", color: theme.colors.muted },
 
   market: { flexDirection: "row", alignItems: "center", gap: 12 },
   marketName: { fontSize: 15, fontWeight: "800", color: theme.colors.text },
   marketPreset: { fontSize: 12, fontWeight: "600", color: theme.colors.muted },
   marketMeta: { fontSize: 12, color: theme.colors.muted, fontVariant: ["tabular-nums"] },
   noMarket: { fontSize: 13, color: theme.colors.muted },
-  why: { fontSize: 11, lineHeight: 15, color: theme.colors.faint },
+  why: { fontSize: 12, lineHeight: 15, color: theme.colors.faint },
 
   tradeButton: {
     height: 38,

@@ -10,6 +10,7 @@ import { CoinGlyph, Identicon } from "../../components/art";
 import { CommentsSheet } from "../../components/CommentsSheet";
 import { BoostSheet, type BoostTarget } from "../../components/BoostSheet";
 import { useClockIn } from "../../lib/clockinContext";
+import { BoltGlyph } from "../../components/profile/glyphs";
 import { SKR_SHORT } from "../../lib/solana";
 import { DepthChart } from "../../components/DepthChart";
 import { Handle } from "../../components/Handle";
@@ -498,9 +499,10 @@ export default function CoinScreen() {
               to={0.94}
             >
               <PostTap accessibilityRole="button" accessibilityLabel={`Boost with ${SKR_SHORT}`}>
-                <BoostLabel>
-                  ⚡{daily.boosts.get(coin.address) ? ` ${Math.round(daily.boosts.get(coin.address)!.amount)}` : ""}
-                </BoostLabel>
+                <BoltGlyph size={20} color={theme.colors.text} filled={Boolean(daily.boosts.get(coin.address))} />
+                {daily.boosts.get(coin.address) ? (
+                  <BoostLabel>{Math.round(daily.boosts.get(coin.address)!.amount)}</BoostLabel>
+                ) : null}
               </PostTap>
             </Tappable>
             {coin.curve.graduated ? (
@@ -1383,7 +1385,7 @@ const GraduatedNote = styled.Text`
 `;
 
 const BoostLabel = styled.Text`
-  font-size: 18px;
+  font-size: 12px;
   font-weight: 800;
   color: ${(p) => p.theme.colors.text};
 `;

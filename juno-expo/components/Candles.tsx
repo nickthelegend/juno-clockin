@@ -145,7 +145,7 @@ export function Candles({
             key={`l${f}`}
             x={PLOT_W + 8}
             y={Math.min(PRICE_H - 2, Math.max(9, PRICE_H * f + 3))}
-            fontSize={9}
+            fontSize={12}
             fill={theme.colors.faint}
           >
             {format(scale.high - (scale.high - scale.low) * f)}
@@ -173,7 +173,7 @@ export function Candles({
         <SvgText
           x={PLOT_W + 9}
           y={Math.max(0, liveY - 8) + 11}
-          fontSize={9}
+          fontSize={12}
           fontWeight="700"
           fill={theme.colors.onLime}
         >

@@ -1,5 +1,5 @@
 import { Image, View } from "react-native";
-import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Rect, Stop } from "react-native-svg";
+import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Rect, Stop, Text as SvgText } from "react-native-svg";
 
 import { theme } from "../theme";
 
@@ -219,22 +219,47 @@ export function CoinArt({
  * always gets the same mark: the address *is* the data, not a placeholder
  * standing in for a missing avatar.
  */
-export function Identicon({ seed, size = 26 }: { seed: string; size?: number }) {
+export function Identicon({ seed, size = 26, label }: { seed: string; size?: number; label?: string | null }) {
   let h = 2166136261;
   for (let i = 0; i < seed.length; i += 1) {
     h ^= seed.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
-  const pick = (shift: number) => Math.abs(h >> shift);
-  const palette = [colors.series[0], colors.series[1], colors.series[2], colors.series[3], colors.pos];
-  const back = palette[pick(0) % palette.length];
-  const front = palette[(pick(8) + 2) % palette.length];
+  const n = h >>> 0;
+  // Two hues a fixed step apart, so every wallet gets a harmonious pair rather
+  // than two random colours fighting; saturation and lightness stay in the
+  // band where white text on top still reads.
+  const hue = n % 360;
+  const hue2 = (hue + 38 + ((n >>> 9) % 50)) % 360;
+  const angle = (n >>> 17) % 4;
+  const id = `id${n.toString(36)}`;
+  const [x1, y1, x2, y2] = [["0", "0", "1", "1"], ["1", "0", "0", "1"], ["0", "1", "1", "0"], ["0", "0", "1", "0.4"]][angle]!;
+  const monogram = label?.trim() ? label.trim().slice(0, 2).toUpperCase() : null;
 
   return (
     <Svg width={size} height={size} viewBox="0 0 48 48">
-      <Circle cx={24} cy={24} r={24} fill={back} opacity={0.22} />
-      <Circle cx={16 + (pick(4) % 10)} cy={18 + (pick(12) % 10)} r={9} fill={back} />
-      <Circle cx={30 - (pick(16) % 8)} cy={30 - (pick(20) % 8)} r={7} fill={front} opacity={0.85} />
+      <Defs>
+        <LinearGradient id={id} x1={x1} y1={y1} x2={x2} y2={y2}>
+          <Stop offset="0" stopColor={`hsl(${hue}, 72%, 58%)`} />
+          <Stop offset="1" stopColor={`hsl(${hue2}, 78%, 46%)`} />
+        </LinearGradient>
+      </Defs>
+      <Circle cx={24} cy={24} r={24} fill={`url(#${id})`} />
+      {/* A soft highlight, so the disc reads as a surface rather than a flat dot. */}
+      <Circle cx={17} cy={14} r={13} fill="#FFFFFF" opacity={0.14} />
+      {monogram ? (
+        <SvgText
+          x={24}
+          y={30.5}
+          fontSize={monogram.length > 1 ? 17 : 20}
+          fontWeight="800"
+          fill="#FFFFFF"
+          textAnchor="middle"
+          letterSpacing={-0.5}
+        >
+          {monogram}
+        </SvgText>
+      ) : null}
     </Svg>
   );
 }
