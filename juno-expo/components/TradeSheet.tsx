@@ -8,6 +8,7 @@ import { Button, Caption, Col, ExternalGlyph, Label, Row } from "./kit";
 import { juno, type Coin } from "../lib/api";
 import { money, tokens } from "../lib/useApi";
 import { useWallet } from "../lib/wallet";
+import { smallDecimal } from "../lib/format";
 import { theme } from "../theme";
 
 /**
@@ -730,7 +731,9 @@ export function TradeSheet({
  * beside it rounds to the preset.
  */
 function trimTrailingZeros(value: number): string {
-  return String(Number(value.toPrecision(6)));
+  const rounded = Number(value.toPrecision(6));
+  // String() switches to exponent form below 1e-6 ("1.86e-7"), never what anyone typed.
+  return Math.abs(rounded) > 0 && Math.abs(rounded) < 1e-6 ? smallDecimal(Math.abs(rounded)) : String(rounded);
 }
 
 function Info() {

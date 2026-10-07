@@ -1078,8 +1078,8 @@ function PostGlyph() {
  */
 function price(value: number, currency: string): string {
   if (!Number.isFinite(value)) return "—";
-  // `money` already writes sub-cent prices the way traders do — 0.0₆242 —
-  // where `toPrecision` printed "$2.42e-7" in the largest type on the screen.
+  // `money` writes sub-cent prices out in full (0.000000242), where
+  // `toPrecision` printed "$2.42e-7" in the largest type on the screen.
   return money(value, currency, { compact: false });
 }
 

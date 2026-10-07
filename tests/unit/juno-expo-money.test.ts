@@ -15,15 +15,15 @@ import { money, tokens } from "../../juno-expo/lib/format";
  */
 
 describe("money", () => {
-  it("writes a sub-0.0001 price with a subscript zero count", () => {
-    expect(money(0.000000186, "USD", { compact: false })).toBe("$0.0₆186");
-    expect(money(0.0000224, "USD", { compact: false })).toBe("$0.0₄224");
+  it("writes a sub-0.0001 price out in full", () => {
+    // Subscript notation (0.0₆186) rendered as "0.0,990" in bold weights.
+    expect(money(0.000000186, "USD", { compact: false })).toBe("$0.000000186");
+    expect(money(0.0000224, "USD", { compact: false })).toBe("$0.0000224");
   });
 
   it("carries correctly when rounding crosses a power of ten", () => {
     // 9.999e-7 rounds to three figures as 1.00e-6, which has one zero fewer.
-    // Without the carry this rendered as `0.0₆1000`.
-    expect(money(0.0000009999, "USD", { compact: false })).toBe("$0.0₅100");
+    expect(money(0.0000009999, "USD", { compact: false })).toBe("$0.000001");
   });
 
   it("leaves readable decimals alone", () => {
@@ -38,8 +38,8 @@ describe("money", () => {
     expect(money(2.5, "SOL", { compact: false })).toBe("2.50 SOL");
   });
 
-  it("signs a negative rather than losing it in the subscript", () => {
-    expect(money(-0.000000186, "USD", { compact: false })).toBe("-$0.0₆186");
+  it("signs a negative", () => {
+    expect(money(-0.000000186, "USD", { compact: false })).toBe("-$0.000000186");
   });
 
   it("returns a dash for what it was not given", () => {
