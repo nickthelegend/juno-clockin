@@ -24,7 +24,7 @@ APK. See [clockin/SUBMISSION.md](clockin/SUBMISSION.md) and [HANDOFF.md](HANDOFF
 | | |
 |---|---|
 | **Repo** | https://github.com/nickthelegend/juno-clockin |
-| **Android APK** | [juno-clockin.apk](https://github.com/nickthelegend/juno-clockin/releases/download/clockin-v1/juno-clockin.apk), release 1.3.0 (arm64-v8a + x86_64), sha256 `a22005abfed43311feb5a9396c04fc5076518067495488f9b2913dc1bec4b264` |
+| **Android APK** | [juno-clockin.apk](https://github.com/nickthelegend/juno-clockin/releases/download/clockin-v1/juno-clockin.apk), release 1.3.1 (arm64-v8a + x86_64), sha256 `76ac5fcb25d06dbf0096c784e54c85c50921d141537417e3ba9c272ac1213ca7` |
 | **Network** | Solana **devnet** only: no real money. A new wallet is funded from Juno's devnet faucet on its first clock-in. |
 | **SKR** | Devnet stand-in mint `dSKRJ7P98rwP8NsDQnS1CzZDrgJXpL3KjwN7N8FABHN` (6 decimals, like mainnet SKR `SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3`), labelled **SKR (devnet stand-in)** in the app. |
 | **API** | https://juno-web-production-bd2e.up.railway.app/api/juno/… (the existing devnet deployment; the CLOCK IN features talk to devnet directly and need nothing new from it) |

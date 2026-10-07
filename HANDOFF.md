@@ -73,7 +73,7 @@ is a plain `adb`/`uiautomator` tap-by-text loop.
 
 ## Current APK
 
-1.3.0 (versionCode 122), sha256 `a22005abfed43311feb5a9396c04fc5076518067495488f9b2913dc1bec4b264`, signed with the same keystore (cert `984c2ec7…a3f6`), uploaded to release `clockin-v1` with `--clobber`; the download re-hashes to the same value. The audit below was done on 1.2.1; 1.3.0 adds only JS (the profile) and keeps the same manifest (0 hits for the removed permissions, 0 for `localhost:3000`).
+1.3.1 (versionCode 123), sha256 `76ac5fcb25d06dbf0096c784e54c85c50921d141537417e3ba9c272ac1213ca7`, signed with the same keystore (cert `984c2ec7…a3f6`), uploaded to release `clockin-v1` with `--clobber`; the download re-hashes to the same value. The audit below was done on 1.2.1; 1.3.0 and 1.3.1 add only JS (the profile, then clearer boost labels) and keeps the same manifest (0 hits for the removed permissions, 0 for `localhost:3000`).
 
 ## Instagram-style profile (Oct 7, branch `profile-ig`, merged)
 
