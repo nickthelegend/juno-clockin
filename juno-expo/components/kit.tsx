@@ -668,7 +668,8 @@ export const Skeleton = styled.View<{ h?: number; w?: string | number; round?: n
   height: ${(p) => p.h ?? 16}px;
   width: ${(p) => (typeof p.w === "number" ? `${p.w}px` : (p.w ?? "100%"))};
   border-radius: ${(p) => p.round ?? p.theme.radius.sm}px;
-  background-color: ${(p) => p.theme.colors.line};
+  background-color: ${(p) => p.theme.colors.lineStrong};
+  opacity: 0.6;
 `;
 
 export const Avatar = styled.Image<{ size?: number }>`

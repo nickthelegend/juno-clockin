@@ -18,7 +18,7 @@ import {
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
+import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg";
 
 import { CoinArt, Identicon } from "../art";
 import { BottomSheet } from "../BottomSheet";
@@ -264,7 +264,7 @@ export function ProfileView({
               </Pressable>
             ) : null}
             <Text style={styles.topHandle} numberOfLines={1}>
-              {handle}
+              {self && !name ? "Your profile" : handle}
             </Text>
             {seekerMint ? (
               <View style={styles.verified}>
@@ -783,8 +783,14 @@ function StatCta({
       <View style={styles.statCtaIcon}>
         {glyph === "bolt" ? (
           <BoltGlyph size={14} color={theme.colors.ink} />
+        ) : glyph === "people" ? (
+          <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+            <Circle cx={9} cy={8} r={3.6} stroke={theme.colors.ink} strokeWidth={2.2} />
+            <Path d="M2.5 20c.8-3.6 3.3-5.6 6.5-5.6s5.7 2 6.5 5.6" stroke={theme.colors.ink} strokeWidth={2.2} strokeLinecap="round" />
+            <Path d="M16 4.6a3.4 3.4 0 0 1 0 6.6M18.4 14.8c1.7.8 2.7 2.5 3.1 5.2" stroke={theme.colors.ink} strokeWidth={2.2} strokeLinecap="round" />
+          </Svg>
         ) : (
-          <Text style={styles.statCtaPlus}>{glyph === "plus" ? "+" : "+"}</Text>
+          <Text style={styles.statCtaPlus}>+</Text>
         )}
       </View>
       <Text style={styles.statCtaLabel} numberOfLines={1}>
@@ -906,7 +912,7 @@ function SkeletonGrid({ tile, tall }: { tile: number; tall?: boolean }) {
       {Array.from({ length: 9 }, (_, i) => (
         <View
           key={i}
-          style={{ width: tile, height: tall ? Math.round(tile * 1.6) : tile, backgroundColor: theme.colors.line, opacity: 0.6 + (i % 3) * 0.12 }}
+          style={{ width: tile, height: tall ? Math.round(tile * 1.6) : tile, backgroundColor: theme.colors.surface, opacity: 0.45 + (i % 3) * 0.15 }}
         />
       ))}
     </Grid>
@@ -1000,7 +1006,7 @@ function HoldingsTab({
       ) : loading ? (
         <View style={{ gap: 10 }}>
           {[0, 1, 2].map((i) => (
-            <View key={i} style={[styles.holding, { height: 62, backgroundColor: theme.colors.line, opacity: 0.6 }]} />
+            <View key={i} style={[styles.holding, { height: 62, backgroundColor: theme.colors.surface, opacity: 0.6 }]} />
           ))}
         </View>
       ) : error ? (

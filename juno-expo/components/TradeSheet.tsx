@@ -461,7 +461,10 @@ export function TradeSheet({
             <SideTap
               $on={side === "buy"}
               $buy
-              onPress={() => setSide("buy")}
+              onPress={() => {
+                if (side !== "buy") setAmount("");
+                setSide("buy");
+              }}
               accessibilityRole="button"
               accessibilityState={{ selected: side === "buy" }}
             >
@@ -472,7 +475,11 @@ export function TradeSheet({
             <SideTap
               $on={side === "sell"}
               $buy={false}
-              onPress={() => setSide("sell")}
+              onPress={() => {
+                // An amount typed in SOL is meaningless as a token count.
+                if (side !== "sell") setAmount("");
+                setSide("sell");
+              }}
               accessibilityRole="button"
               accessibilityState={{ selected: side === "sell" }}
             >
