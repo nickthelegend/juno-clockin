@@ -98,8 +98,8 @@ apps have no reason to open them tomorrow: you trade once, and leave.
    wallet** (Seed Vault / Phantom / Solflare). A new wallet is funded with
    devnet SOL from Juno's faucet automatically on its first clock-in.
 
-APK: package `app.launch.juno`, version 1.2.1 (versionCode 121).
-sha256: `a7dbdbc759584086b58f9cc968bcba47c7f2fa9efdb5c9ca21eeb64cff3904c2`
+APK: package `app.launch.juno`, version 1.3.0 (versionCode 122).
+sha256: `a22005abfed43311feb5a9396c04fc5076518067495488f9b2913dc1bec4b264`
 
 ## What is new for CLOCK IN (significant new mobile development)
 
@@ -111,6 +111,9 @@ sha256: `a7dbdbc759584086b58f9cc968bcba47c7f2fa9efdb5c9ca21eeb64cff3904c2`
   split, boost-ranked feed with on-chain verification of amounts
 - Seeker Genesis Token detection (read-only mainnet) with a 2x reward
 - Local streak notifications, haptics on success and failure
+- Instagram-style profile for you and every creator: story ring lit by
+  today's clock-in, counts, highlights (streak, dSKR, boosts, Seeker, coins),
+  posts/reels/boosted grids and holdings, all from real on-chain and API data
 - Returning users skip onboarding; friendlier transaction errors
 - Release-signed Android APK (per-app keystore kept outside git)
 

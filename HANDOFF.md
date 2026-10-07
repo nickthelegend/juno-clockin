@@ -71,6 +71,34 @@ wallet to clock in" → (Connect wallet shows the no-wallet message) → Dev
 wallet (devnet only) → Clock in. The script used is in the session notes; it
 is a plain `adb`/`uiautomator` tap-by-text loop.
 
+## Current APK
+
+1.3.0 (versionCode 122), sha256 `a22005abfed43311feb5a9396c04fc5076518067495488f9b2913dc1bec4b264`, signed with the same keystore (cert `984c2ec7…a3f6`), uploaded to release `clockin-v1` with `--clobber`; the download re-hashes to the same value. The audit below was done on 1.2.1; 1.3.0 adds only JS (the profile) and keeps the same manifest (0 hits for the removed permissions, 0 for `localhost:3000`).
+
+## Instagram-style profile (Oct 7, branch `profile-ig`, merged)
+
+`components/profile/ProfileView.tsx` serves both your Profile tab and every
+creator's page (`/trader/<wallet>`): story ring (gradient when today's
+clock-in is on-chain, dashed when the streak is at risk), Posts / Followers /
+Following / Boosts, name and a bio written from real activity, a creator-coin
+link chip, Edit profile (signed name claim) / Share profile (system share
+sheet with web and `juno://` links) / settings sheet (wallet card, wallet
+type, Disconnect), highlights (streak → clock-in card, dSKR, Boosts, Seeker
+when a Genesis Token is found, Coins), sticky icon tabs with swipe and
+haptics (posts grid, reels grid, Boosted grid with dSKR badges, Holdings with
+Watching and Plans). On a creator's page the buttons are Follow and Buy $COIN,
+and the realised-P&L record sits above their Holdings.
+
+Verified on the iPhone 17 Pro simulator: own profile, streak sheet, settings
+sheet, Boosted and Holdings tabs, a creator's profile (3 posts with real
+thumbnails, reels tab, swipe to Boosted), plus a regression boost from the
+reels rail (tx `2YdtR1HW7PrAm1mfdJdjbWTSkwPyzZkgQh4tWfE9oUodcTnDsTyfciWJpdBgvGeU9QFoMkJu9MuhG1hrmSqa5fyQ`).
+Fixed while testing: a boost also appears in the creator's history, so
+"boosts given" now counts only transactions the wallet paid for; one shared
+bottom sheet could reopen off-screen, so each opening is a fresh instance.
+Screenshots: `clockin/screens/profile-ig/` (before-*, after-*).
+Not done: `.skr` name resolution (mainnet AllDomains lookup, skipped as not cheap).
+
 ## Android audit (Oct 7, static, no emulator)
 
 APK 1.2.1 (versionCode 121), sha256
