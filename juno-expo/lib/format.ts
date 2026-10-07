@@ -46,7 +46,7 @@ export function money(
         : abs === 0
           ? "0"
           : abs < 0.0001
-            ? subscripted(abs)
+            ? smallDecimal(abs)
             : abs < 1
               ? abs.toFixed(4)
               : abs.toFixed(2);
@@ -54,36 +54,24 @@ export function money(
   return currency === "USD" ? `${sign}$${figure}` : `${sign}${figure} ${currency}`;
 }
 
-/** ₀₁₂₃… — index is the digit. */
-const SUBSCRIPTS = "\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089";
-
 /**
- * A price too small for plain decimals, written the way traders write it.
+ * A price too small for four decimals, written out in full.
  *
- * `0.000000186` becomes `0.0₆186`: the subscript counts the zeros after the
- * point. This was `toExponential`, which put `$1.86e-7` in a social feed — a
- * correct number nobody reads, on cards whose whole job is to be glanced at.
- * Every coin here launches around 1e-7, so this is the normal case rather than
- * an edge one.
- *
- * Three significant figures. Past that the digits are noise at this scale, and
- * the figure has to sit in a column beside two others.
+ * `0.000000186` stays `0.000000186`: three significant figures, trailing
+ * zeros trimmed. This used subscript notation (`0.0₆186`), which is what
+ * traders write, but the subscript digits are a font feature: in the bold
+ * weights used on the reel dock and the price pills they rendered as
+ * `0.0,990`, a number nobody can read correctly. Plain decimals are longer
+ * but never wrong, and every coin here launches around 1e-7, so this is the
+ * normal case. `toFixed` does the rounding, including the carry when
+ * 9.999e-7 becomes 0.000001.
  */
-function subscripted(abs: number): string {
-  const exponent = Math.floor(Math.log10(abs));
-  let digits = Math.round(abs / 10 ** (exponent - 2));
-  let zeros = -exponent - 1;
-
-  // Rounding can carry into the next power — 9.999e-7 rounds to 1000, which is
-  // 1.00e-6 and one zero fewer. Without this it renders as `0.0₆1000`.
-  if (digits >= 1000) {
-    digits = Math.round(digits / 10);
-    zeros -= 1;
-  }
-
+export function smallDecimal(abs: number): string {
+  if (abs === 0) return "0";
+  const zeros = -Math.floor(Math.log10(abs)) - 1;
   if (zeros <= 0) return abs.toFixed(4);
-  const marker = zeros < 10 ? SUBSCRIPTS[zeros] : `(${zeros})`;
-  return `0.0${marker}${digits}`;
+  const fixed = abs.toFixed(Math.min(zeros + 3, 20));
+  return fixed.includes(".") ? fixed.replace(/0+$/, "").replace(/\.$/, "") : fixed;
 }
 
 /**

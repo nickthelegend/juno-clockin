@@ -6,7 +6,7 @@ import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 
 import { CoinArt } from "../../components/art";
 import { BoostSheet, type BoostTarget } from "../../components/BoostSheet";
-import { ClockInCard } from "../../components/ClockInCard";
+import { ClockInSheet, ClockInStrip, StreakBubble } from "../../components/ClockInCompact";
 import { useClockIn } from "../../lib/clockinContext";
 import { CommentsSheet } from "../../components/CommentsSheet";
 import { FeedCard, type Buyers } from "../../components/FeedCard";
@@ -77,6 +77,9 @@ export default function SocialScreen() {
 
   const daily = useClockIn();
   const [boosting, setBoosting] = useState<BoostTarget | null>(null);
+  const [clockSheet, setClockSheet] = useState(false);
+  // Compact once today is on-chain: the streak becomes the first story bubble.
+  const clockedToday = Boolean(wallet.address && daily.state.data?.clockedToday);
   const [trade, setTrade] = useState<Coin | null>(null);
   const [talking, setTalking] = useState<Coin | null>(null);
   const [extraComments, setExtraComments] = useState<Record<string, number>>({});
@@ -168,7 +171,7 @@ export default function SocialScreen() {
 
       {markets.loading || markets.data === null ? (
         <ScrollView contentContainerStyle={{ paddingBottom: 130 }}>
-          <ClockInCard />
+          {clockedToday ? null : <ClockInStrip onOpen={() => setClockSheet(true)} />}
           <View style={styles.rings}>
             {[0, 1, 2, 3].map((i) => (
               <View key={i} style={{ alignItems: "center", gap: 6 }}>
@@ -196,8 +199,12 @@ export default function SocialScreen() {
         </ScrollView>
       ) : markets.error ? (
         <Placeholder
-          title="Could not load the feed"
-          detail={markets.error}
+          title={/reach Juno|timed out|network/i.test(markets.error) ? "You're offline" : "Could not load the feed"}
+          detail={
+            /reach Juno|timed out|network/i.test(markets.error)
+              ? "Juno can't reach its server right now. Check your connection and try again; your streak and coins are safe on-chain."
+              : markets.error
+          }
           action={<Button label="Try again" onPress={refresh} />}
         />
       ) : (
@@ -212,15 +219,16 @@ export default function SocialScreen() {
             />
           }
         >
-          {scope === "everyone" ? <ClockInCard /> : null}
+          {scope === "everyone" && !clockedToday ? <ClockInStrip onOpen={() => setClockSheet(true)} /> : null}
 
-          {reels.length > 0 && scope === "everyone" ? (
+          {scope === "everyone" && (reels.length > 0 || clockedToday) ? (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.ringStrip}
               contentContainerStyle={styles.rings}
             >
+              {clockedToday ? <StreakBubble onOpen={() => setClockSheet(true)} /> : null}
               {reels.map((coin) => (
                 <ReelRing
                   key={coin.address}
@@ -304,6 +312,7 @@ export default function SocialScreen() {
       ) : null}
 
       <BoostSheet target={boosting} onClose={() => setBoosting(null)} bottomInset={tabBar.height} />
+      <ClockInSheet visible={clockSheet} onClose={() => setClockSheet(false)} bottomInset={tabBar.height - 20} />
 
       {trade ? (
         <QuickTrade
@@ -366,7 +375,7 @@ function ReelRing({ coin, onPress }: { coin: Coin; onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: theme.colors.surfaceAlt },
+  page: { flex: 1, backgroundColor: theme.colors.bg },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -374,29 +383,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 4,
     paddingBottom: 10,
-    backgroundColor: theme.colors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.line,
+    backgroundColor: theme.colors.bg,
   },
   wordmark: { fontSize: 26, fontWeight: "900", letterSpacing: -1.2, color: theme.colors.text },
   scope: {
     flexDirection: "row",
     padding: 3,
     borderRadius: 999,
-    backgroundColor: theme.colors.surfaceAlt,
+    backgroundColor: theme.colors.surface,
   },
   scopeItem: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
   scopeOn: { backgroundColor: theme.colors.ink },
   scopeText: { fontSize: 13, fontWeight: "700", color: theme.colors.muted },
   scopeTextOn: { color: theme.colors.onInk },
 
-  ringStrip: { flexGrow: 0, backgroundColor: theme.colors.surface, marginBottom: 10 },
+  ringStrip: { flexGrow: 0, marginBottom: 8 },
   rings: {
     flexDirection: "row",
     gap: 14,
     paddingHorizontal: 14,
-    paddingVertical: 14,
-    backgroundColor: theme.colors.surface,
+    paddingVertical: 10,
   },
   ring: { alignItems: "center", gap: 6, width: 72 },
   ringOuter: { width: 70, height: 70, alignItems: "center", justifyContent: "center" },

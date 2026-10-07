@@ -822,7 +822,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(214,255,61,0.16)",
   },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: theme.colors.lime },
-  liveText: { fontSize: 11, fontWeight: "700", color: theme.colors.lime, letterSpacing: 0.2 },
+  liveText: { fontSize: 12, fontWeight: "700", color: theme.colors.lime, letterSpacing: 0.2 },
   headerButton: {
     width: 36,
     height: 36,

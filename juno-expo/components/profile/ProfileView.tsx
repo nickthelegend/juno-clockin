@@ -18,7 +18,7 @@ import {
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
+import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg";
 
 import { CoinArt, Identicon } from "../art";
 import { BottomSheet } from "../BottomSheet";
@@ -187,7 +187,7 @@ export function ProfileView({
   const bio = useMemo(() => {
     const parts: string[] = [];
     if (posts.length > 0) parts.push(`Creator of ${posts.length} ${posts.length === 1 ? "market" : "markets"}`);
-    if (streak > 0) parts.push(`🔥 ${streak}-day streak`);
+    if (streak > 0) parts.push(`${streak}-day streak`);
     if (boostsGiven.length > 0) parts.push(`backing ${boostsGiven.length} ${boostsGiven.length === 1 ? "post" : "posts"}`);
     if (parts.length === 0) {
       return self ? "New on Juno. Clock in daily to earn dSKR, then back the posts you believe in." : "On Juno.";
@@ -264,7 +264,7 @@ export function ProfileView({
               </Pressable>
             ) : null}
             <Text style={styles.topHandle} numberOfLines={1}>
-              {handle}
+              {self && !name ? "Your profile" : handle}
             </Text>
             {seekerMint ? (
               <View style={styles.verified}>
@@ -293,18 +293,32 @@ export function ProfileView({
               accessibilityLabel={liveToday ? `Streak alive, ${streak} days` : "Streak"}
             >
               <StoryRing size={92} state={liveToday ? "live" : streak > 0 ? "risk" : "none"}>
-                <Identicon seed={wallet} size={80} />
+                <Identicon seed={wallet} size={80} label={name ?? wallet.slice(0, 2)} />
               </StoryRing>
             </Pressable>
             <View style={styles.stats}>
-              <StatCell value={markets.loading ? null : posts.length} label="Posts" />
-              <StatCell value={followers} label="Followers" />
-              <StatCell value={stats.data ? stats.data.following : null} label="Following" />
-              <StatCell
-                value={activity.data ? boostsGiven.reduce((n, b) => n + b.count, 0) : null}
-                label="Boosts"
-                onPress={() => chooseTab("boosted")}
-              />
+              {self && !markets.loading && posts.length === 0 ? (
+                <StatCta glyph="plus" label="First post" onPress={() => router.push("/(tabs)/post?format=post" as never)} />
+              ) : (
+                <StatCell value={markets.loading ? null : posts.length} label="Posts" />
+              )}
+              {self && followers === 0 && stats.data?.following === 0 ? (
+                <StatCta glyph="people" label="Find creators" wide onPress={() => router.push("/(tabs)/social" as never)} />
+              ) : (
+                <>
+                  <StatCell value={followers} label="Followers" />
+                  <StatCell value={stats.data ? stats.data.following : null} label="Following" />
+                </>
+              )}
+              {self && activity.data && boostsGiven.length === 0 ? (
+                <StatCta glyph="bolt" label="Boost a post" onPress={() => router.push("/(tabs)/social" as never)} />
+              ) : (
+                <StatCell
+                  value={activity.data ? boostsGiven.reduce((n, b) => n + b.count, 0) : null}
+                  label="Boosts"
+                  onPress={() => chooseTab("boosted")}
+                />
+              )}
             </View>
           </View>
 
@@ -312,6 +326,17 @@ export function ProfileView({
           <View style={styles.identity}>
             {name ? <Text style={styles.name}>{displayName}</Text> : null}
             {name ? <Text style={styles.subHandle}>{shortAddress(wallet)}</Text> : null}
+            {self && !name ? (
+              <Pressable
+                onPress={() => setSheet("edit")}
+                style={({ pressed }) => [styles.namePrompt, { transform: [{ scale: pressed ? 0.97 : 1 }] }]}
+                accessibilityRole="button"
+                accessibilityLabel="Choose a name"
+              >
+                <Text style={styles.namePromptTitle}>Choose a name</Text>
+                <Text style={styles.namePromptSub}>So people see you, not {shortAddress(wallet)}</Text>
+              </Pressable>
+            ) : null}
             <Text style={styles.bio}>{bio}</Text>
             {creatorCoin ? (
               <Pressable
@@ -382,7 +407,7 @@ export function ProfileView({
             <HighlightBubble label="Boosted" tone="soft" onPress={() => setSheet("boosts")}>
               <View style={{ alignItems: "center" }}>
                 <Text style={styles.bubbleAmount}>{activity.data ? formatSkr(boostTotal) : "—"}</Text>
-                <Text style={styles.bubbleUnit}>⚡ {SKR_SHORT}</Text>
+                <Text style={styles.bubbleUnit}>{SKR_SHORT}</Text>
               </View>
             </HighlightBubble>
             {seekerMint ? (
@@ -486,7 +511,7 @@ export function ProfileView({
                         coin={coin ?? null}
                         seed={boost.coin}
                         size={tile}
-                        badge={`⚡ ${formatSkr(boost.amount)}`}
+                        badge={formatSkr(boost.amount)}
                         onPress={() => router.push(`/coin/${boost.coin}` as never)}
                       />
                     );
@@ -525,12 +550,12 @@ export function ProfileView({
           {shown === "streak" ? (
             self ? (
               <>
-                <SheetTitle kicker="DAILY CLOCK-IN" title={streak > 0 ? `${streak}-day streak` : "Start a streak"} />
+                <SheetTitle title={streak > 0 ? `${streak}-day streak` : "Start a streak"} />
                 <ClockInCard compact />
               </>
             ) : (
               <>
-                <SheetTitle kicker="STREAK" title={streak > 0 ? `${streak}-day streak` : "No streak right now"} />
+                <SheetTitle title={streak > 0 ? `${streak}-day streak` : "No streak right now"} />
                 <Text style={styles.sheetBody}>
                   {clock
                     ? `Best ${clock.best} · ${clock.total} ${clock.total === 1 ? "day" : "days"} clocked in on-chain${liveToday ? " · clocked in today" : ""}.`
@@ -545,7 +570,7 @@ export function ProfileView({
             )
           ) : shown === "skr" ? (
             <>
-              <SheetTitle kicker={SKR_LABEL.toUpperCase()} title={`${skrBalance === null ? "—" : formatSkr(skrBalance)} ${SKR_SHORT}`} />
+              <SheetTitle title={`${skrBalance === null ? "—" : formatSkr(skrBalance)} ${SKR_SHORT}`} />
               <Text style={styles.sheetBody}>
                 Earned by clocking in every day (10 on day one, up to 40 on day seven, double on Seeker) and spent boosting posts:
                 80% to the creator, 20% back to the reward treasury. On devnet this is a stand-in mint with SKR's 6 decimals.
@@ -560,7 +585,6 @@ export function ProfileView({
           ) : shown === "boosts" ? (
             <>
               <SheetTitle
-                kicker="BOOSTED"
                 title={`${formatSkr(boostTotal)} ${SKR_SHORT} across ${boostsGiven.reduce((n, b) => n + b.count, 0)} ${
                   boostsGiven.reduce((n, b) => n + b.count, 0) === 1 ? "boost" : "boosts"
                 }`}
@@ -572,7 +596,7 @@ export function ProfileView({
                 </Text>
               ) : null}
               {boostsGiven.length === 0 ? (
-                <Text style={styles.sheetBody}>Nothing boosted yet. Tap ⚡ on any post to back it with dSKR.</Text>
+                <Text style={styles.sheetBody}>Nothing boosted yet. Tap the bolt on any post to back it with dSKR.</Text>
               ) : (
                 boostsGiven.slice(0, 6).map((boost) => {
                   const coin = byAddress.get(boost.coin);
@@ -589,7 +613,10 @@ export function ProfileView({
                       <Text style={styles.sheetRowTitle} numberOfLines={1}>
                         {coin ? coin.name : shortAddress(boost.coin)}
                       </Text>
-                      <Text style={styles.sheetRowValue}>⚡ {formatSkr(boost.amount)}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                        <BoltGlyph size={14} color={theme.colors.text} filled />
+                        <Text style={styles.sheetRowValue}>{formatSkr(boost.amount)}</Text>
+                      </View>
                     </Pressable>
                   );
                 })
@@ -597,7 +624,7 @@ export function ProfileView({
             </>
           ) : shown === "seeker" ? (
             <>
-              <SheetTitle kicker="SEEKER GENESIS TOKEN" title="Seeker verified" />
+              <SheetTitle title="Seeker verified" />
               <Text style={styles.sheetBody}>
                 This wallet holds a Seeker Genesis Token (read from mainnet, no transaction). Seeker owners earn double dSKR on
                 every clock-in.
@@ -607,7 +634,6 @@ export function ProfileView({
           ) : shown === "coins" ? (
             <>
               <SheetTitle
-                kicker="COINS HELD"
                 title={
                   portfolio.data
                     ? `${positions.length} ${positions.length === 1 ? "coin" : "coins"} · ${
@@ -644,7 +670,7 @@ export function ProfileView({
             </>
           ) : shown === "edit" ? (
             <>
-              <SheetTitle kicker="EDIT PROFILE" title="Your name" />
+              <SheetTitle title="Your name" />
               <Text style={styles.sheetBody}>
                 Your name is signed by your wallet, so nobody else can take it. Your bio is written from what you do on Juno.
               </Text>
@@ -728,6 +754,48 @@ function StatCell({ value, label, onPress }: { value: number | null; label: stri
     <Pressable onPress={onPress} disabled={!onPress} style={styles.stat} accessibilityLabel={`${value ?? "unknown"} ${label}`}>
       <Text style={styles.statValue}>{value === null ? "—" : count(value) || "0"}</Text>
       <Text style={styles.statLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/** A zero, turned into the thing you would do about it. */
+function StatCta({
+  glyph,
+  label,
+  onPress,
+  wide,
+}: {
+  glyph: "plus" | "people" | "bolt";
+  label: string;
+  onPress: () => void;
+  wide?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={() => {
+        void Haptics.selectionAsync().catch(() => undefined);
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [styles.statCta, wide ? { minWidth: 112 } : null, { transform: [{ scale: pressed ? 0.95 : 1 }] }]}
+    >
+      <View style={styles.statCtaIcon}>
+        {glyph === "bolt" ? (
+          <BoltGlyph size={14} color={theme.colors.ink} />
+        ) : glyph === "people" ? (
+          <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+            <Circle cx={9} cy={8} r={3.6} stroke={theme.colors.ink} strokeWidth={2.2} />
+            <Path d="M2.5 20c.8-3.6 3.3-5.6 6.5-5.6s5.7 2 6.5 5.6" stroke={theme.colors.ink} strokeWidth={2.2} strokeLinecap="round" />
+            <Path d="M16 4.6a3.4 3.4 0 0 1 0 6.6M18.4 14.8c1.7.8 2.7 2.5 3.1 5.2" stroke={theme.colors.ink} strokeWidth={2.2} strokeLinecap="round" />
+          </Svg>
+        ) : (
+          <Text style={styles.statCtaPlus}>+</Text>
+        )}
+      </View>
+      <Text style={styles.statCtaLabel} numberOfLines={1}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -822,6 +890,7 @@ function Tile({
         ) : null}
         {badge ? (
           <View style={styles.tileBadge}>
+            <BoltGlyph size={12} color={theme.colors.onLime} filled />
             <Text style={styles.tileBadgeText}>{badge}</Text>
           </View>
         ) : null}
@@ -843,7 +912,7 @@ function SkeletonGrid({ tile, tall }: { tile: number; tall?: boolean }) {
       {Array.from({ length: 9 }, (_, i) => (
         <View
           key={i}
-          style={{ width: tile, height: tall ? Math.round(tile * 1.6) : tile, backgroundColor: theme.colors.line, opacity: 0.6 + (i % 3) * 0.12 }}
+          style={{ width: tile, height: tall ? Math.round(tile * 1.6) : tile, backgroundColor: theme.colors.surface, opacity: 0.45 + (i % 3) * 0.15 }}
         />
       ))}
     </Grid>
@@ -875,13 +944,8 @@ function Empty({
   );
 }
 
-function SheetTitle({ kicker, title }: { kicker: string; title: string }) {
-  return (
-    <View style={{ gap: 4 }}>
-      <Text style={styles.sheetKicker}>{kicker}</Text>
-      <Text style={styles.sheetTitle}>{title}</Text>
-    </View>
-  );
+function SheetTitle({ title }: { title: string }) {
+  return <Text style={styles.sheetTitle}>{title}</Text>;
 }
 
 function HoldingsTab({
@@ -942,7 +1006,7 @@ function HoldingsTab({
       ) : loading ? (
         <View style={{ gap: 10 }}>
           {[0, 1, 2].map((i) => (
-            <View key={i} style={[styles.holding, { height: 62, backgroundColor: theme.colors.line, opacity: 0.6 }]} />
+            <View key={i} style={[styles.holding, { height: 62, backgroundColor: theme.colors.surface, opacity: 0.6 }]} />
           ))}
         </View>
       ) : error ? (
@@ -997,7 +1061,7 @@ function SettingsBody({ wallet, onDisconnect }: { wallet: string; onDisconnect: 
         : "A devnet key in this device's keychain. Not recoverable, for testing only. Juno never sees it.";
   return (
     <View style={{ gap: 12 }}>
-      <SheetTitle kicker="WALLET AND SETTINGS" title={mode} />
+      <SheetTitle title={mode} />
       <Text style={styles.sheetBody}>{about}</Text>
       <WalletCard address={wallet} />
       <Pressable
@@ -1022,14 +1086,36 @@ function SettingsBody({ wallet, onDisconnect }: { wallet: string; onDisconnect: 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: theme.colors.bg },
   topBar: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, height: 48 },
-  back: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface },
+  back: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface },
   topHandle: { fontSize: theme.type.title.size, fontWeight: "800", color: theme.colors.text, letterSpacing: -0.4, flexShrink: 1 },
   verified: { width: 22, height: 22, borderRadius: 11, backgroundColor: theme.colors.lime, alignItems: "center", justifyContent: "center" },
-  topIcon: { width: 36, height: 36, borderRadius: 12, borderWidth: 1.8, borderColor: theme.colors.text, alignItems: "center", justifyContent: "center" },
+  topIcon: { width: 44, height: 44, borderRadius: 12, borderWidth: 1.8, borderColor: theme.colors.text, alignItems: "center", justifyContent: "center" },
   plus: { fontSize: 20, fontWeight: "700", color: theme.colors.text, marginTop: -2 },
   headerRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 6, gap: 10 },
   stats: { flex: 1, flexDirection: "row", justifyContent: "space-around" },
-  stat: { alignItems: "center", minWidth: 56 },
+  stat: { alignItems: "center", minWidth: 56, minHeight: 44, justifyContent: "center" },
+  statCta: { alignItems: "center", minWidth: 64, minHeight: 44, gap: 3, justifyContent: "center" },
+  statCtaIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.lime,
+  },
+  statCtaPlus: { fontSize: 17, fontWeight: "900", color: theme.colors.ink, marginTop: -2 },
+  statCtaLabel: { fontSize: theme.type.caption.size, fontWeight: "700", color: theme.colors.text },
+  namePrompt: {
+    alignSelf: "flex-start",
+    marginTop: 2,
+    marginBottom: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.lime,
+  },
+  namePromptTitle: { fontSize: theme.type.label.size, fontWeight: "800", color: theme.colors.onLime },
+  namePromptSub: { fontSize: theme.type.caption.size, color: theme.colors.onLime, opacity: 0.75 },
   statValue: { fontSize: theme.type.lead.size, fontWeight: "800", color: theme.colors.text, fontVariant: ["tabular-nums"] },
   statLabel: { fontSize: theme.type.caption.size, color: theme.colors.muted },
   identity: { paddingHorizontal: 16, paddingTop: 10, gap: 2 },
@@ -1051,7 +1137,7 @@ const styles = StyleSheet.create({
   buttons: { flexDirection: "row", gap: 6, paddingHorizontal: 16, paddingTop: 12 },
   btn: {
     flex: 1,
-    height: 36,
+    height: 44,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
@@ -1060,7 +1146,7 @@ const styles = StyleSheet.create({
   },
   btnPrimary: { backgroundColor: theme.colors.lime },
   btnText: { fontSize: theme.type.label.size, fontWeight: "700", color: theme.colors.text },
-  iconBtn: { width: 40, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface },
+  iconBtn: { width: 44, height: 44, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface },
   highlights: { paddingHorizontal: 12, paddingTop: 16, paddingBottom: 12, gap: 14 },
   bubbleWrap: { alignItems: "center", width: 70, gap: 5 },
   bubbleRing: { width: 66, height: 66, borderRadius: 33, borderWidth: 1, borderColor: theme.colors.lineStrong, alignItems: "center", justifyContent: "center" },
@@ -1068,9 +1154,9 @@ const styles = StyleSheet.create({
   bubbleNumber: { fontSize: 15, fontWeight: "900" },
   bubbleBig: { fontSize: 16, fontWeight: "900", color: theme.colors.lime, fontVariant: ["tabular-nums"] },
   bubbleAmount: { fontSize: 16, fontWeight: "900", color: theme.colors.ink, fontVariant: ["tabular-nums"] },
-  bubbleUnit: { fontSize: 9, fontWeight: "800", color: theme.colors.ink, marginTop: -1 },
+  bubbleUnit: { fontSize: 12, fontWeight: "800", color: theme.colors.ink, marginTop: -1 },
   bubbleSmall: { fontSize: 12, fontWeight: "800", color: theme.colors.ink },
-  bubbleLabel: { fontSize: 11, fontWeight: "600", color: theme.colors.text },
+  bubbleLabel: { fontSize: 12, fontWeight: "600", color: theme.colors.text },
   tabBar: {
     flexDirection: "row",
     backgroundColor: theme.colors.bg,
@@ -1083,6 +1169,9 @@ const styles = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 2, paddingTop: 2 },
   tileCorner: { position: "absolute", top: 6, right: 6 },
   tileBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
     position: "absolute",
     top: 6,
     left: 6,
@@ -1091,9 +1180,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: theme.colors.lime,
   },
-  tileBadgeText: { fontSize: 11, fontWeight: "900", color: theme.colors.onLime },
+  tileBadgeText: { fontSize: 12, fontWeight: "900", color: theme.colors.onLime },
   tileFoot: { position: "absolute", left: 6, bottom: 5, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: "rgba(7,8,10,0.55)" },
-  tileFootText: { fontSize: 10, fontWeight: "800", color: "#FFFFFF" },
+  tileFootText: { fontSize: 12, fontWeight: "800", color: "#FFFFFF" },
   empty: { alignItems: "center", paddingHorizontal: 32, paddingTop: 42, gap: 8 },
   emptyIcon: {
     width: 76,
@@ -1119,7 +1208,7 @@ const styles = StyleSheet.create({
   holdTotal: { alignItems: "center", gap: 2, paddingVertical: 4 },
   holdTotalValue: { fontSize: theme.type.screen.size, fontWeight: "900", color: theme.colors.text, letterSpacing: -0.8 },
   sheet: { gap: 12, paddingHorizontal: 20, paddingTop: 8 },
-  sheetKicker: { fontSize: 11, letterSpacing: 1.4, fontWeight: "800", color: theme.colors.muted },
+  sheetKicker: { fontSize: 12, letterSpacing: 1.4, fontWeight: "800", color: theme.colors.muted },
   sheetTitle: { fontSize: theme.type.title.size, fontWeight: "800", color: theme.colors.text },
   sheetBody: { fontSize: theme.type.label.size, lineHeight: 19, color: theme.colors.muted },
   sheetLink: { fontSize: theme.type.label.size, fontWeight: "700", color: theme.colors.focus },

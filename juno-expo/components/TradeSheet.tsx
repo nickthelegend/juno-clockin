@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Linking, Modal, Platform, Pressable, TextInput } from "react-native";
+import { Linking, Modal, Platform, Pressable, TextInput, View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import styled from "styled-components/native";
 
@@ -8,6 +8,8 @@ import { Button, Caption, Col, ExternalGlyph, Label, Row } from "./kit";
 import { juno, type Coin } from "../lib/api";
 import { money, tokens } from "../lib/useApi";
 import { useWallet } from "../lib/wallet";
+import { smallDecimal } from "../lib/format";
+import { TxRow } from "./TxRow";
 import { theme } from "../theme";
 
 /**
@@ -459,7 +461,10 @@ export function TradeSheet({
             <SideTap
               $on={side === "buy"}
               $buy
-              onPress={() => setSide("buy")}
+              onPress={() => {
+                if (side !== "buy") setAmount("");
+                setSide("buy");
+              }}
               accessibilityRole="button"
               accessibilityState={{ selected: side === "buy" }}
             >
@@ -470,7 +475,11 @@ export function TradeSheet({
             <SideTap
               $on={side === "sell"}
               $buy={false}
-              onPress={() => setSide("sell")}
+              onPress={() => {
+                // An amount typed in SOL is meaningless as a token count.
+                if (side !== "sell") setAmount("");
+                setSide("sell");
+              }}
               accessibilityRole="button"
               accessibilityState={{ selected: side === "sell" }}
             >
@@ -494,16 +503,18 @@ export function TradeSheet({
               — confirmed on Solana.
             </Label>
             {noteError ? <ErrorText>{noteError}</ErrorText> : null}
-            <Receipt>
-              tx {signature!.slice(0, 8)}…{signature!.slice(-8)}
-              {landedAt
-                ? ` · ${landedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
-                : ""}
-            </Receipt>
-            <LinkTap onPress={() => Linking.openURL(juno.explorer("tx", signature!))}>
-              <LinkText>View the transaction</LinkText>
-              <ExternalGlyph />
-            </LinkTap>
+            <View style={{ alignSelf: "stretch", marginTop: 12 }}>
+              <TxRow
+                signature={signature!}
+                label={
+                  landedAt
+                    ? `${side === "buy" ? "Buy" : "Sell"} · confirmed ${landedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                    : side === "buy"
+                      ? "Buy"
+                      : "Sell"
+                }
+              />
+            </View>
             <Button label="Done" onPress={onDone} style={{ marginTop: 16, alignSelf: "stretch" }} />
           </Done>
         ) : (
@@ -730,7 +741,9 @@ export function TradeSheet({
  * beside it rounds to the preset.
  */
 function trimTrailingZeros(value: number): string {
-  return String(Number(value.toPrecision(6)));
+  const rounded = Number(value.toPrecision(6));
+  // String() switches to exponent form below 1e-6 ("1.86e-7"), never what anyone typed.
+  return Math.abs(rounded) > 0 && Math.abs(rounded) < 1e-6 ? smallDecimal(Math.abs(rounded)) : String(rounded);
 }
 
 function Info() {

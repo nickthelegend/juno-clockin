@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import React from "react";
 import { ActivityIndicator, Animated, Pressable, type StyleProp, type ViewStyle } from "react-native";
 import Svg, { Path } from "react-native-svg";
@@ -274,7 +275,14 @@ export function Button({
 
   return (
     <Touchable
-      onPress={inactive ? undefined : onPress}
+      onPress={
+        inactive
+          ? undefined
+          : () => {
+              void Haptics.selectionAsync().catch(() => undefined);
+              onPress?.();
+            }
+      }
       onPressIn={inactive ? undefined : onPressIn}
       onPressOut={inactive ? undefined : onPressOut}
       accessibilityRole="button"
@@ -660,7 +668,8 @@ export const Skeleton = styled.View<{ h?: number; w?: string | number; round?: n
   height: ${(p) => p.h ?? 16}px;
   width: ${(p) => (typeof p.w === "number" ? `${p.w}px` : (p.w ?? "100%"))};
   border-radius: ${(p) => p.round ?? p.theme.radius.sm}px;
-  background-color: ${(p) => p.theme.colors.line};
+  background-color: ${(p) => p.theme.colors.lineStrong};
+  opacity: 0.6;
 `;
 
 export const Avatar = styled.Image<{ size?: number }>`

@@ -6,6 +6,7 @@ import { dayKey, previousDay } from "../lib/clockin";
 import { useClockIn } from "../lib/clockinContext";
 import { explorerTx, SKR_LABEL, SKR_SHORT } from "../lib/solana";
 import { useWallet } from "../lib/wallet";
+import { TxRow } from "./TxRow";
 import { theme } from "../theme";
 
 /**
@@ -67,8 +68,8 @@ export function ClockInCard({ compact = false }: { compact?: boolean }) {
 
   return (
     <View style={[styles.card, compact ? styles.compact : null]} accessibilityLabel="Daily clock-in">
-      <View style={styles.top}>
-        <Text style={styles.kicker}>DAILY CLOCK-IN</Text>
+      <View style={[styles.top, compact ? { justifyContent: "flex-end" } : null]}>
+        {compact ? null : <Text style={styles.kicker}>DAILY CLOCK-IN</Text>}
         <SeekerBadge mint={daily.seekerMint} checked={daily.seekerChecked} connected={Boolean(wallet.address)} />
       </View>
 
@@ -136,14 +137,13 @@ export function ClockInCard({ compact = false }: { compact?: boolean }) {
       </Pressable>
 
       {result ? (
-        <Text style={styles.result} onPress={() => void Linking.openURL(explorerTx(result.signature))}>
-          {result.rewarded ? `+${result.reward} ${SKR_SHORT} minted · ` : "Recorded · "}
-          <Text style={styles.link}>view transaction</Text>
-        </Text>
+        <TxRow
+          tone="dark"
+          signature={result.signature}
+          label={result.rewarded ? `Clock-in · +${result.reward} ${SKR_SHORT} minted` : "Clock-in recorded"}
+        />
       ) : clocked && data?.entries[0] ? (
-        <Text style={styles.result} onPress={() => void Linking.openURL(explorerTx(data.entries[0]!.signature))}>
-          Today is on-chain · <Text style={styles.link}>view transaction</Text>
-        </Text>
+        <TxRow tone="dark" signature={data.entries[0].signature} label="Today's clock-in" />
       ) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   },
   compact: { marginHorizontal: 0, marginTop: 0, marginBottom: 0 },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  kicker: { fontSize: 11, letterSpacing: 1.4, fontWeight: "800", color: theme.colors.lime },
+  kicker: { fontSize: 12, letterSpacing: 1.4, fontWeight: "800", color: theme.colors.lime },
   hero: { flexDirection: "row", alignItems: "center", gap: 12 },
   flame: {
     width: 48,
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   sub: { fontSize: theme.type.caption.size, lineHeight: 16, color: "rgba(243,247,238,0.66)", marginTop: 2 },
   balance: { alignItems: "flex-end" },
   balanceValue: { fontSize: theme.type.title.size, fontWeight: "800", color: theme.colors.lime, fontVariant: ["tabular-nums"] },
-  balanceUnit: { fontSize: 11, fontWeight: "700", color: "rgba(243,247,238,0.66)" },
+  balanceUnit: { fontSize: 12, fontWeight: "700", color: "rgba(243,247,238,0.66)" },
   week: { flexDirection: "row", justifyContent: "space-between" },
   dayCol: { alignItems: "center", gap: 5, width: 40 },
   dot: {
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
   dotOn: { backgroundColor: theme.colors.lime },
   dotToday: { borderWidth: 1.5, borderColor: theme.colors.lime, borderStyle: "dashed" },
   tick: { fontSize: 14, fontWeight: "900", color: theme.colors.onLime },
-  dayLabel: { fontSize: 10, fontWeight: "600", color: "rgba(243,247,238,0.5)" },
+  dayLabel: { fontSize: 12, fontWeight: "600", color: "rgba(243,247,238,0.5)" },
   dayLabelToday: { color: theme.colors.lime },
   button: {
     flexDirection: "row",
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
   result: { fontSize: theme.type.caption.size, color: "rgba(243,247,238,0.75)", textAlign: "center" },
   link: { color: theme.colors.lime, fontWeight: "700" },
   error: { fontSize: theme.type.caption.size, color: "#FF8A80", textAlign: "center" },
-  fine: { fontSize: 11, lineHeight: 15, color: "rgba(243,247,238,0.5)" },
+  fine: { fontSize: 12, lineHeight: 15, color: "rgba(243,247,238,0.5)" },
   badge: {
     paddingHorizontal: 9,
     paddingVertical: 3,
@@ -265,5 +265,5 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.1)",
   },
   badgeOn: { backgroundColor: theme.colors.lime },
-  badgeText: { fontSize: 10, fontWeight: "700", color: "rgba(243,247,238,0.8)" },
+  badgeText: { fontSize: 12, fontWeight: "700", color: "rgba(243,247,238,0.8)" },
 });
