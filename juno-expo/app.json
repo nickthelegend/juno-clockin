@@ -2,7 +2,7 @@
   "expo": {
     "name": "Juno",
     "slug": "juno",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -19,11 +19,10 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "app.launch.juno",
-      "versionCode": 125,
+      "versionCode": 126,
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA"
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -45,7 +44,7 @@
         "expo-image-picker",
         {
           "photosPermission": "Juno uses your photos and videos so you can launch them as a post or a reel.",
-          "cameraPermission": false,
+          "cameraPermission": "Juno uses the camera so you can shoot a photo and launch it as a post.",
           "microphonePermission": false
         }
       ],

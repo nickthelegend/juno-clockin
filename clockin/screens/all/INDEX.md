@@ -1,4 +1,4 @@
-# Juno screen census (1.4.0, iPhone 17 Pro simulator, 7 Oct 2026)
+# Juno screen census (1.5.0, iPhone 17 Pro simulator, 7 Oct 2026)
 
 Every screen and state reachable with the dev wallet `9DCu…7kzo` on devnet,
 captured after the polish round. Images are half resolution (603 × 1311).
@@ -22,8 +22,15 @@ captured after the polish round. Images are half resolution (603 × 1311).
 | 16 | `16-coin-page-details.png` | `/coin/[mint]` | Name, ticker, address copy, market cap / volume / creator rewards, Activity tab | Scroll the coin page | — |
 | 17 | `17-comments-sheet.png` | sheet on coin | Empty comments with composer | Coin page → comment button | — |
 | 18 | `18-create-sheet.png` | sheet on tabs | Post a photo / Post a reel | Centre + | — |
-| 19 | `19-post-photo.png` | `/(tabs)/post?format=post` | Launch form: photo picker, name, ticker, caption | + → Post a photo | — |
-| 20 | `20-post-curves.png` | same | Four curve presets drawn, disabled Launch until a photo is picked | Scroll the post form | — |
+| 19 | `19-post-media-empty.png` | `/(tabs)/post?format=post` | Composer step 1 (Media), empty: progress bar, Photo / Reel switch, Library (and Camera on Android) | + → Post a photo, cancel the library that opens automatically | Camera is Android-only: expo-image-picker crashes the iOS Simulator when opening a camera it does not have. |
+| 19b | `19b-post-media-picked.png` | same | Full-bleed square preview with crop corners, Crop and Change chips, sticky "Next: details" | Pick a photo (the native square crop opens first) | — |
+| 20 | `20-post-details.png` | same, step 2 | Large Name input, $ ticker with auto-suggest and live availability ("$LEMON is available"), caption with counter | Next: details | Inline validation: a taken or malformed ticker turns the field red with the reason. |
+| 20b | `20b-post-live-preview.png` | same, step 2 | The post exactly as the feed card will draw it | Scroll Details | — |
+| 20c | `20c-post-curve-picker.png` | same, step 3 | Curve presets as cards: big curve drawn in on select, axis hint, best-for line, lime border, glow and check | Next: pick a curve | — |
+| 20d | `20d-post-launch-summary.png` | same, step 3 | Advanced disclosure, launch summary (name, ticker, curve, ≈ 0.027 SOL fee, balance), "2 quick approvals" | Scroll Launch | Wallet missing → CTA reads "Connect wallet to launch"; low SOL → "Get devnet SOL" (code paths, not captured). |
+| 20e | `20e-post-launch-progress.png` | progress sheet | Steps: upload, token details, approval 1 (curve), approval 2 (pool) with Copy / Solscan rows, go live | Launch $TICKER | Real devnet launch, txs `2t4qY33F…` and `7292NfMc…` (see HANDOFF). Error state shows "Try again" / "Back to editing". |
+| 20f | `20f-post-success.png` | success screen | Lime burst, "Your market is live", View your market / Share / Post another | When listing completes | — |
+| 20g | `20g-post-new-market.png` | `/coin/[mint]` | The new $LEMON market | View your market | — |
 | 21 | `21-creator-page-loading.png` | `/trader/[wallet]` | Creator page while reads are in flight (dashes, not zeros) | Tap a creator | — |
 | 22 | `22-creator-page.png` | `/trader/[wallet]` | Instagram-style creator page: monogram avatar, counts, coin chip, Follow / Buy, highlights, posts grid | Tap a creator name | — |
 | 23 | `23-profile-own.png` | `/(tabs)/profile` | Own profile: "Your profile", streak ring, zero stats turned into actions (First post, Find creators), "Choose a name" prompt, highlights | Profile tab | — |

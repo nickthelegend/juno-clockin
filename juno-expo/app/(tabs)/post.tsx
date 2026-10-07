@@ -1,221 +1,300 @@
 import { Image as ExpoImage } from "expo-image";
+import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
   View,
+  useWindowDimensions,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Circle, Path } from "react-native-svg";
 
-import { CurvePreview } from "../../components/CurvePreview";
-import { Button, Card, Pill } from "../../components/kit";
+import { Identicon } from "../../components/art";
+import { CURVE_PRESETS, CurveCard, type PresetId } from "../../components/composer/CurveCard";
+import { LaunchProgress, LaunchSuccess, type LaunchStep } from "../../components/composer/LaunchFlow";
 import { juno, WSOL_MINT } from "../../lib/api";
+import { loadMarkets } from "../../lib/markets";
+import { useReducedMotion } from "../../lib/motion";
+import { useHandle } from "../../lib/names";
 import { feedChanged } from "../../lib/refresh";
+import { appUrl } from "../../lib/social";
 import { useTabBarHeight } from "../../lib/tabbar";
+import { checkTicker, cleanTicker, suggestTicker } from "../../lib/ticker";
 import { useWallet } from "../../lib/wallet";
 import { theme } from "../../theme";
 
 /**
- * Post — which here means launching a real market.
+ * Post: a three-step composer that launches a real market.
  *
- * This is Juno's whole claim in one screen. Publishing does not create a row in
- * a table; it creates a Meteora bonding curve pool on Solana, with a sixteen
- * segment curve chosen from a preset, and the post *is* that market.
+ * Media, Details, Launch. Publishing creates a Meteora bonding-curve pool on
+ * Solana devnet for the post; the post *is* that market. The flow is paged so
+ * each step owns the screen (a picture, then words, then a decision about the
+ * curve), with one sticky button that always says what happens next.
  *
- * ## Two signatures, and why it cannot be one
- *
- * A launch is two transactions: create the curve config, then open the pool
- * against it. They cannot be bundled — a sixteen-segment curve plus the pool
- * init serialises to about 1488 bytes against Solana's 1232 byte packet limit,
- * and dropping curve points to fit would gut the exact thing that makes these
- * presets worth anything.
- *
- * So the second signature can fail after the first has landed, leaving a config
- * on-chain with no pool. That is a real state and the screen says so plainly
- * rather than reporting a generic failure, because the config is not lost — it
- * is a usable account, and the retry is cheap.
+ * A launch is two approvals because a sixteen-segment curve plus the pool
+ * init is about 1488 bytes, over Solana's 1232-byte packet limit. The second
+ * can fail after the first lands; the progress sheet says so and retrying is
+ * safe. A pool that confirmed but could not be listed keeps everything needed
+ * to retry the listing without signing again.
  */
 
-const PRESETS = [
-  {
-    id: "content",
-    label: "Content",
-    blurb: "Back-loaded. Cheap to enter, steepens as attention arrives.",
-  },
-  {
-    id: "thin-name",
-    label: "Thin name",
-    blurb: "Front-loaded. Deep at the issue price so early size fills.",
-  },
-  {
-    id: "ipo-book",
-    label: "IPO book",
-    blurb: "Deep at both ends, thin in the middle. Book-building.",
-  },
-  {
-    id: "tight-nav",
-    label: "Tight NAV",
-    blurb: "Uniform. Tracks an underlying like a spread, not a launch.",
-  },
-] as const;
+const MAX_CAPTION = 280;
+const MAX_BYTES = 25 * 1024 * 1024;
+/** Measured on devnet: a launch costs about 0.027 SOL, nearly all of it account rent. */
+const LAUNCH_FEE_SOL = 0.027;
+const STEPS = ["Media", "Details", "Launch"] as const;
+
+type Kind = "post" | "reel";
+type Record = Parameters<typeof juno.recordLaunch>[0];
+
+const INITIAL_STEPS: LaunchStep[] = [
+  { id: "upload", label: "Upload", detail: "Pinning your media to IPFS", state: "pending" },
+  { id: "meta", label: "Token details", detail: "Name, ticker and picture, pinned", state: "pending" },
+  { id: "curve", label: "Approval 1 of 2", detail: "Create your curve", state: "pending" },
+  { id: "pool", label: "Approval 2 of 2", detail: "Open the pool on Meteora", state: "pending" },
+  { id: "list", label: "Go live", detail: "List it in the Juno feed", state: "pending" },
+];
 
 export default function PostScreen() {
   const router = useRouter();
   const wallet = useWallet();
-  /*
-   * Which kind of thing is being launched, chosen in the create sheet.
-   *
-   * It was hardcoded to "post", so the phone could not launch a reel at all
-   * while the web could — and a reel is a different object in the feed, not a
-   * cosmetic label: it decides whether this lands in the grid or the swipe
-   * feed. Defaulting to "post" keeps a direct visit to this route working.
-   */
-  const { format } = useLocalSearchParams<{ format?: string }>();
-  const kind: "post" | "reel" = format === "reel" ? "reel" : "post";
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const tabBar = useTabBarHeight();
+  const reduced = useReducedMotion();
+  const params = useLocalSearchParams<{ format?: string }>();
 
+  const [kind, setKind] = useState<Kind>(params.format === "reel" ? "reel" : "post");
   const [media, setMedia] = useState<ImagePicker.ImagePickerAsset | null>(null);
-  const [caption, setCaption] = useState("");
-  /** A launch that confirmed on-chain but could not be listed yet — kept so listing can be retried. */
-  const [unlisted, setUnlisted] = useState<Parameters<typeof juno.recordLaunch>[0] | null>(null);
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
-  const [preset, setPreset] = useState<string>("content");
-  const [status, setStatus] = useState<string | null>(null);
-  /**
-   * What has actually happened, as it happens: each step with its receipt —
-   * an IPFS address or a transaction signature — and the time it landed.
-   * Shown while the launch runs, so the chain's answers are on screen rather
-   * than a spinner that says "trust me".
-   */
-  const [log, setLog] = useState<LogEntry[]>([]);
-  const note = (entry: Omit<LogEntry, "at">) =>
-    setLog((current) => [...current, { ...entry, at: new Date() }]);
-  // The log grows under the fold, beneath the tab bar; keep its newest row in
-  // view, the way a terminal follows its output.
-  const scroller = useRef<ScrollView>(null);
-  const TAB_H = useTabBarHeight().height;
-  useEffect(() => {
-    if (log.length > 0) setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 60);
-  }, [log.length]);
-  const [error, setError] = useState<string | null>(null);
+  const [symbolEdited, setSymbolEdited] = useState(false);
+  const [caption, setCaption] = useState("");
+  const [preset, setPreset] = useState<PresetId>("content");
+  const [touched, setTouched] = useState<{ name?: boolean; symbol?: boolean }>({});
+  const [step, setStep] = useState(0);
+  const [pickError, setPickError] = useState<string | null>(null);
+  const [advanced, setAdvanced] = useState(false);
+
   const [busy, setBusy] = useState(false);
+  const [progressOpen, setProgressOpen] = useState(false);
+  const [steps, setSteps] = useState<LaunchStep[]>(INITIAL_STEPS);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  const [unlisted, setUnlisted] = useState<Record | null>(null);
+  const [live, setLive] = useState<Record | null>(null);
 
-  // A different format wants a different file: a photo for a post, a video
-  // for a reel. Switching formats clears a pick of the wrong kind.
+  const pager = useRef<ScrollView>(null);
+  const bar = useRef(new Animated.Value(0)).current;
+
+  /* ------------------------------- reads ------------------------------- */
+
+  const [taken, setTaken] = useState<Set<string> | null>(null);
   useEffect(() => {
-    if (media && (media.type === "video") !== (kind === "reel")) setMedia(null);
-  }, [kind, media]);
+    loadMarkets(null)
+      .then((m) => setTaken(new Set([...m.posts, ...m.preipo, ...m.stocks].map((c) => c.symbol.toUpperCase()))))
+      .catch(() => setTaken(null));
+  }, []);
 
-  const symbolOk = /^[A-Z0-9]{2,10}$/.test(symbol.trim().toUpperCase());
+  const [sol, setSol] = useState<number | null>(null);
+  const [funding, setFunding] = useState(false);
+  const readBalance = useCallback(() => {
+    if (!wallet.address) return setSol(null);
+    juno
+      .balance(wallet.address, WSOL_MINT)
+      .then((r) => setSol(r.balance))
+      .catch(() => setSol(null));
+  }, [wallet.address]);
+  useEffect(() => {
+    if (step === 2) readBalance();
+  }, [step, readBalance]);
+
+  /* ---------------------------- validation ----------------------------- */
+
+  const cleanSymbol = symbol.trim().toUpperCase();
+  const tickerState = checkTicker(cleanSymbol, taken);
+  const symbolFormatOk = tickerState !== "empty" && tickerState !== "format";
+  const symbolTaken = tickerState === "taken";
+  const nameOk = name.trim().length >= 2 && name.trim().length <= 32;
   const captionOk = caption.trim().length <= MAX_CAPTION;
-  /*
-   * Media is required. Every post in the feed is a picture and every reel is
-   * a video; a launch without one produced a coin that drew as a placeholder
-   * in the feed and — for a reel — never appeared in Reels at all.
-   */
-  const canLaunch = !!media && name.trim().length > 0 && symbolOk && captionOk && !busy;
-  const missing = !media
-    ? kind === "reel"
-      ? "Add a video to launch"
-      : "Add a photo to launch"
-    : !name.trim()
-      ? "Name it to launch"
-      : !symbolOk
-        ? "Add a 2–10 character ticker"
-        : !captionOk
-          ? "Caption is too long"
-          : null;
+  const detailsOk = nameOk && symbolFormatOk && !symbolTaken && captionOk;
+  const lowSol = sol !== null && sol < LAUNCH_FEE_SOL + 0.003;
+  const maxStep = !media ? 0 : !detailsOk ? 1 : 2;
 
-  async function pick() {
-    setError(null);
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: kind === "reel" ? ["videos"] : ["images"],
-        // A JPEG, not the library's HEIC original: an iPhone photo is HEIC,
-        // which the server's image reader refused ("heif: security limit
-        // exceeded") and which a browser viewing the post cannot draw. A
-        // quality below 1 already makes iOS re-encode; `Compatible` says so.
-        quality: 0.9,
-        preferredAssetRepresentationMode:
-          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
-        videoMaxDuration: 90,
-      });
-      if (result.canceled || !result.assets[0]) return;
-      const asset = result.assets[0];
-      if (asset.fileSize && asset.fileSize > MAX_BYTES) {
-        setError("That file is over 25MB. Pick a smaller one.");
-        return;
-      }
-      setMedia(asset);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not open your library");
+  const nameError = touched.name && !nameOk ? (name.trim().length < 2 ? "At least 2 characters" : "32 characters at most") : null;
+  const symbolHint = !cleanSymbol
+    ? "2 to 10 letters or numbers"
+    : !symbolFormatOk
+      ? "Use 2 to 10 letters or numbers"
+      : symbolTaken
+        ? `$${cleanSymbol} is already a Juno market. Try another.`
+        : taken
+          ? `$${cleanSymbol} is available`
+          : "Checking availability…";
+  const symbolTone: "ok" | "bad" | "muted" = !cleanSymbol
+    ? "muted"
+    : !symbolFormatOk || symbolTaken
+      ? touched.symbol || symbolTaken
+        ? "bad"
+        : "muted"
+      : taken
+        ? "ok"
+        : "muted";
+
+  /* ------------------------------ paging ------------------------------- */
+
+  const goTo = useCallback(
+    (next: number) => {
+      const clamped = Math.max(0, Math.min(next, 2));
+      setStep(clamped);
+      pager.current?.scrollTo({ x: clamped * width, animated: !reduced });
+      Animated.timing(bar, { toValue: clamped, duration: reduced ? 0 : 260, useNativeDriver: false }).start();
+      void Haptics.selectionAsync().catch(() => undefined);
+    },
+    [width, reduced, bar],
+  );
+
+  const onPageEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const page = Math.round(event.nativeEvent.contentOffset.x / width);
+    if (page > maxStep) {
+      // Swiped ahead of what is filled in: back to the first step that needs you.
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
+      if (page >= 1 && maxStep === 1) setTouched({ name: true, symbol: true });
+      goTo(maxStep);
+      return;
     }
-  }
+    if (page !== step) {
+      setStep(page);
+      Animated.timing(bar, { toValue: page, duration: reduced ? 0 : 200, useNativeDriver: false }).start();
+    }
+  };
 
-  /** Index a confirmed launch. Throws with a reason the screen can show. */
-  async function list(record: Parameters<typeof juno.recordLaunch>[0]) {
-    setStatus("Listing it on Juno…");
+  /* ------------------------------- media ------------------------------- */
+
+  const pick = useCallback(
+    async (source: "library" | "camera" = "library") => {
+      setPickError(null);
+      try {
+        const options: ImagePicker.ImagePickerOptions = {
+          mediaTypes: kind === "reel" ? ["videos"] : ["images"],
+          // A post is a square in the feed, so offer the square crop up front.
+          allowsEditing: kind === "post",
+          aspect: [1, 1],
+          quality: 0.9,
+          preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+          videoMaxDuration: 90,
+        };
+        let result: ImagePicker.ImagePickerResult;
+        if (source === "camera") {
+          const permission = await ImagePicker.requestCameraPermissionsAsync();
+          if (!permission.granted) {
+            setPickError("Juno needs camera access for that. You can still choose from your library.");
+            return;
+          }
+          result = await ImagePicker.launchCameraAsync(options);
+        } else {
+          result = await ImagePicker.launchImageLibraryAsync(options);
+        }
+        if (result.canceled || !result.assets[0]) return;
+        const asset = result.assets[0];
+        if (asset.fileSize && asset.fileSize > MAX_BYTES) {
+          setPickError("That file is over 25MB. Pick a smaller one.");
+          return;
+        }
+        setMedia(asset);
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+      } catch (caught) {
+        const text = caught instanceof Error ? caught.message : "";
+        setPickError(
+          source === "camera" && /camera|simulator|unavailable/i.test(text)
+            ? "No camera on this device. Choose from your library instead."
+            : text || "Could not open your library",
+        );
+      }
+    },
+    [kind],
+  );
+
+  // Arriving from the + sheet opens the library straight away, the way a
+  // camera app opens the camera. Once per arrival, and only with nothing picked.
+  const opened = useRef<string | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const format = params.format === "reel" ? "reel" : params.format === "post" ? "post" : null;
+      if (!format) return;
+      if (format !== kind) {
+        setKind(format);
+        setMedia(null);
+      }
+      const key = `${format}`;
+      if (opened.current === key || busy) return;
+      opened.current = key;
+      if (!media || format !== kind) {
+        const timer = setTimeout(() => void pick("library"), 350);
+        return () => clearTimeout(timer);
+      }
+      return undefined;
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [params.format]),
+  );
+
+  // A ticker suggested from the name until the creator types their own.
+  useEffect(() => {
+    if (symbolEdited) return;
+    setSymbol(suggestTicker(name));
+  }, [name, symbolEdited]);
+
+  /* ------------------------------ launch ------------------------------- */
+
+  const mark = (id: string, patch: Partial<LaunchStep>) =>
+    setSteps((all) => all.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+
+  async function list(record: Record) {
+    mark("list", { state: "active" });
     try {
       await juno.recordLaunch(record);
       setUnlisted(null);
-      note({ label: "Listed on Juno", receipt: record.baseMint });
-      setStatus("Live");
+      mark("list", { state: "done", detail: "Live in the feed" });
       feedChanged();
-      // A beat on the finished log: every receipt is on screen at once, which
-      // is the proof, before the coin page replaces it.
-      await new Promise((resolve) => setTimeout(resolve, 3500));
-      setStatus(null);
-      // A blank composer for the next one. The tab stays mounted, so coming
-      // back to it showed the last post filled in — one tap from launching a
-      // duplicate coin.
-      setMedia(null);
-      setName("");
-      setSymbol("");
-      setCaption("");
-      setPreset("content");
-      router.push(`/coin/${record.baseMint}`);
+      setLive(record);
+      setProgressOpen(false);
     } catch (caught) {
       setUnlisted(record);
-      setStatus(null);
+      mark("list", { state: "error" });
       throw new Error(
-        `Your coin is live on-chain, but Juno could not list it yet: ${
+        `Your market is live on-chain, but Juno could not list it yet (${
           caught instanceof Error ? caught.message : "unknown error"
-        }. Tap "Retry listing" — nothing needs signing again.`,
+        }). Try again: nothing needs signing.`,
       );
-    }
-  }
-
-  async function retryListing() {
-    if (!unlisted) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await list(unlisted);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Listing failed");
-    } finally {
-      setBusy(false);
     }
   }
 
   async function launch() {
     if (!media) return;
     setBusy(true);
-    setError(null);
-    setLog([]);
+    setLaunchError(null);
+    setProgressOpen(true);
     try {
+      if (unlisted) {
+        await list(unlisted);
+        return;
+      }
+      setSteps(INITIAL_STEPS);
       const address = wallet.address ?? (await wallet.connect());
 
-      setStatus(kind === "reel" ? "Uploading your video…" : "Uploading your photo…");
+      mark("upload", { state: "active" });
       const uploaded = await juno.upload(
         media.file ?? {
           uri: media.uri,
@@ -223,68 +302,44 @@ export default function PostScreen() {
           type: media.mimeType ?? (media.type === "video" ? "video/mp4" : "image/jpeg"),
         },
       );
+      mark("upload", { state: "done", detail: "Pinned to IPFS" });
 
-      note({ label: kind === "reel" ? "Video pinned to IPFS" : "Photo pinned to IPFS", receipt: uploaded.uri });
-
-      setStatus("Pinning the token metadata…");
+      mark("meta", { state: "active" });
       const metadata = await juno.pinMetadata({
         name: name.trim(),
-        symbol: symbol.trim().toUpperCase(),
+        symbol: cleanSymbol,
         description: caption.trim() || undefined,
         curvePreset: preset,
-        // Wallets and explorers want a still; a reel's is its poster.
         imageUrl: uploaded.posterUrl ?? uploaded.url,
         mimeType: uploaded.posterUrl ? "image/jpeg" : uploaded.mimeType,
       });
+      mark("meta", { state: "done", detail: "Name, ticker and picture pinned" });
 
-      note({ label: "Token metadata pinned", receipt: metadata.uri });
+      mark("curve", { state: "active", detail: wallet.mode === "mwa" ? "Approve in your wallet" : "Create your curve" });
+      const built = await juno.buildLaunch({ creator: address, name: name.trim(), symbol: cleanSymbol, preset, uri: metadata.uri });
 
-      setStatus("Building the launch…");
-      const built = await juno.buildLaunch({
-        creator: address,
-        name: name.trim(),
-        symbol: symbol.trim().toUpperCase(),
-        preset,
-        uri: metadata.uri,
-      });
-
-      // In order, and each must confirm before the next is valid: the pool
-      // cannot be opened against a config that does not exist yet.
       let poolSignature = "";
-      for (const [index, step] of built.steps.entries()) {
-        setStatus(`${step.label}… (${index + 1}/${built.steps.length})`);
-        const signed = await wallet.sign(step.transaction);
+      for (const [index, tx] of built.steps.entries()) {
+        const id = index === 0 ? "curve" : "pool";
+        mark(id, { state: "active", detail: wallet.mode === "mwa" ? "Approve in your wallet" : index === 0 ? "Creating your curve" : "Opening the pool" });
+        const signed = await wallet.sign(tx.transaction);
         try {
-          const { signature } = await juno.submit({
-            transaction: signed,
-            window: built.window,
-          });
-          // The last step opens the pool, and its signature is the receipt a
-          // judge clicks.
+          const { signature } = await juno.submit({ transaction: signed, window: built.window });
           poolSignature = signature;
-          note({
-            label: index === 0 ? "Curve config created" : "Pool opened on Meteora",
-            receipt: signature,
-            tx: true,
-          });
+          mark(id, { state: "done", detail: index === 0 ? "Curve created" : "Pool open on Meteora", signature });
         } catch (stepError) {
+          mark(id, { state: "error" });
           if (index > 0) {
             throw new Error(
-              `The curve config was created, but opening the pool failed: ${
+              `Your curve was created, but opening the pool failed (${
                 stepError instanceof Error ? stepError.message : "unknown error"
-              }. Nothing is lost — try again.`,
+              }). Nothing is lost.`,
             );
           }
           throw stepError;
         }
       }
 
-      /*
-       * The pool exists on-chain from here on. Listing it used to fail
-       * silently, which left a creator with a live market that appeared
-       * nowhere in the app and no idea why. Now a failure says so and keeps
-       * everything needed to retry without signing again.
-       */
       await list({
         baseMint: built.baseMint,
         poolAddress: built.pool,
@@ -292,7 +347,7 @@ export default function PostScreen() {
         quoteMint: WSOL_MINT,
         creatorWallet: address,
         name: name.trim(),
-        symbol: symbol.trim().toUpperCase(),
+        symbol: cleanSymbol,
         format: kind,
         curvePreset: preset,
         createSignature: poolSignature,
@@ -304,188 +359,431 @@ export default function PostScreen() {
         mediaHeight: uploaded.height,
       });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Launch failed");
-      setStatus(null);
+      const text = caught instanceof Error ? caught.message : "Launch failed";
+      setSteps((all) => all.map((s) => (s.state === "active" ? { ...s, state: "error" } : s)));
+      setLaunchError(
+        /insufficient|0x1\b|lamports/i.test(text)
+          ? "Not enough devnet SOL for the launch. Get devnet SOL on the Launch step, then try again."
+          : /reach Juno|timed out|network/i.test(text)
+            ? "Juno could not reach the network. Check your connection and try again."
+            : /declin|reject|cancel/i.test(text)
+              ? "You declined in your wallet. Try again when you're ready."
+              : text,
+      );
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
     } finally {
       setBusy(false);
     }
   }
 
+  function reset() {
+    setLive(null);
+    setMedia(null);
+    setName("");
+    setSymbol("");
+    setSymbolEdited(false);
+    setCaption("");
+    setPreset("content");
+    setTouched({});
+    setSteps(INITIAL_STEPS);
+    opened.current = null;
+    goTo(0);
+  }
+
+  async function fund() {
+    if (!wallet.address) return;
+    setFunding(true);
+    try {
+      await juno.faucet(wallet.address);
+      readBalance();
+    } catch {
+      // The balance stays low and the button stays; the faucet's own message is not worth a modal.
+    } finally {
+      setFunding(false);
+    }
+  }
+
+  /* ------------------------------ render ------------------------------- */
+
+  const cta = (() => {
+    if (step === 0) return { label: "Next: details", onPress: () => goTo(1), enabled: Boolean(media) };
+    if (step === 1) {
+      return {
+        label: detailsOk ? "Next: pick a curve" : "Next",
+        onPress: () => {
+          setTouched({ name: true, symbol: true });
+          if (detailsOk) goTo(2);
+          else void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
+        },
+        enabled: detailsOk,
+      };
+    }
+    if (!wallet.address) return { label: "Connect wallet to launch", onPress: () => void wallet.connect().catch(() => undefined), enabled: true };
+    if (lowSol) return { label: funding ? "Getting devnet SOL…" : "Get devnet SOL", onPress: () => void fund(), enabled: !funding };
+    return { label: `Launch $${cleanSymbol}`, onPress: () => void launch(), enabled: !busy };
+  })();
+
+  const stillUri = media?.type === "video" ? null : (media?.uri ?? null);
+
   return (
-    <SafeAreaView style={styles.screen} edges={["top"]}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          ref={scroller}
-          contentContainerStyle={[styles.body, { paddingBottom: TAB_H + 24 }]}
-          showsVerticalScrollIndicator={false}
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      {/* Header: close, title, the three steps */}
+      <View style={styles.header}>
+        <Pressable
+          onPress={() => router.push("/(tabs)/social" as never)}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Close composer"
+          style={styles.close}
         >
-          <Text style={styles.title}>
-            {kind === "reel" ? "Post a reel" : "Post a photo"}
-          </Text>
-          <Text style={styles.lede}>
-            {kind === "reel"
-              ? "A vertical video with a real Meteora bonding curve behind it. It lands in the swipe feed."
-              : "Publishing opens a real Meteora bonding curve on Solana. The post is the market."}
-          </Text>
+          <Svg width={18} height={18} viewBox="0 0 24 24">
+            <Path d="M6 6l12 12M18 6 6 18" stroke={theme.colors.text} strokeWidth={2.4} strokeLinecap="round" />
+          </Svg>
+        </Pressable>
+        <Text style={styles.headerTitle}>{kind === "reel" ? "New reel" : "New post"}</Text>
+        <View style={{ width: 44 }} />
+      </View>
+      <View style={styles.progress}>
+        {STEPS.map((label, i) => (
+          <Pressable
+            key={label}
+            onPress={() => (i <= maxStep ? goTo(i) : undefined)}
+            style={styles.progressItem}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: step === i, disabled: i > maxStep }}
+            accessibilityLabel={`Step ${i + 1}, ${label}`}
+          >
+            <View style={styles.progressTrack}>
+              <Animated.View
+                style={[
+                  styles.progressFill,
+                  {
+                    width: bar.interpolate({
+                      inputRange: [i - 1, i, i + 1],
+                      outputRange: ["0%", "100%", "100%"],
+                      extrapolate: "clamp",
+                    }),
+                  },
+                ]}
+              />
+            </View>
+            <Text style={[styles.progressLabel, step === i ? styles.progressLabelOn : null, i > maxStep ? { color: theme.colors.faint } : null]}>
+              {label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
-          <MediaPicker kind={kind} media={media} onPick={pick} disabled={busy} />
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+        <ScrollView
+          ref={pager}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={onPageEnd}
+          keyboardShouldPersistTaps="handled"
+          scrollEnabled={!busy}
+          style={{ flex: 1 }}
+        >
+          {/* 1. Media */}
+          <ScrollView style={{ width }} contentContainerStyle={[styles.page, { paddingBottom: tabBar.height + 100 }]} showsVerticalScrollIndicator={false}>
+            <View style={styles.kindSwitch}>
+              {(["post", "reel"] as const).map((k) => (
+                <Pressable
+                  key={k}
+                  onPress={() => {
+                    if (k === kind) return;
+                    void Haptics.selectionAsync().catch(() => undefined);
+                    setKind(k);
+                    setMedia(null);
+                  }}
+                  style={[styles.kindItem, kind === k ? styles.kindItemOn : null]}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: kind === k }}
+                >
+                  <Text style={[styles.kindText, kind === k ? styles.kindTextOn : null]}>{k === "post" ? "Photo" : "Reel"}</Text>
+                </Pressable>
+              ))}
+            </View>
 
-          <Card style={styles.form}>
-            <Field label="Name">
+            {media ? (
+              <View style={[styles.preview, { aspectRatio: kind === "reel" ? 4 / 5 : 1 }]}>
+                {media.type === "video" ? (
+                  <VideoPreview uri={media.uri} />
+                ) : (
+                  <ExpoImage source={{ uri: media.uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+                )}
+                <View style={styles.previewChips}>
+                  <Chip label={kind === "post" ? "Crop" : "Change"} onPress={() => void pick("library")} />
+                  {kind === "post" ? <Chip label="Change" onPress={() => void pick("library")} /> : null}
+                </View>
+                {kind === "post" ? (
+                  <View pointerEvents="none" style={styles.cropFrame}>
+                    {["tl", "tr", "bl", "br"].map((c) => (
+                      <View key={c} style={[styles.corner, styles[c as "tl"]]} />
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            ) : (
+              <View style={[styles.empty, { aspectRatio: kind === "reel" ? 4 / 5 : 1 }]}>
+                <View style={styles.emptyIcon}>
+                  <Svg width={34} height={34} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5z"
+                      stroke={theme.colors.ink}
+                      strokeWidth={1.6}
+                      strokeLinejoin="round"
+                    />
+                    <Circle cx={12} cy={12.5} r={3.4} stroke={theme.colors.ink} strokeWidth={1.6} />
+                  </Svg>
+                </View>
+                <Text style={styles.emptyTitle}>{kind === "reel" ? "Start with a video" : "Start with a photo"}</Text>
+                <Text style={styles.emptySub}>
+                  {kind === "reel" ? "Vertical, up to 90 seconds and 25MB." : "It becomes a square in the feed. Up to 25MB."}
+                </Text>
+                <View style={styles.emptyActions}>
+                  <BigAction label="Library" primary onPress={() => void pick("library")} />
+                  {/* Android only for now: expo-image-picker opens the iOS camera without
+                      checking it exists, which crashes the iOS Simulator. */}
+                  {kind === "post" && Platform.OS === "android" ? (
+                    <BigAction label="Camera" onPress={() => void pick("camera")} />
+                  ) : null}
+                </View>
+              </View>
+            )}
+            {pickError ? <Text style={styles.inlineError}>{pickError}</Text> : null}
+          </ScrollView>
+
+          {/* 2. Details */}
+          <ScrollView
+            style={{ width }}
+            contentContainerStyle={[styles.page, { paddingBottom: tabBar.height + 110 }]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Field label="Name" error={nameError} hint={!nameError ? "What people will call this market" : null}>
               <TextInput
                 value={name}
                 onChangeText={setName}
+                onBlur={() => setTouched((t) => ({ ...t, name: true }))}
                 placeholder="Night Market"
                 placeholderTextColor={theme.colors.faint}
-                style={styles.input}
-                maxLength={64}
+                maxLength={40}
+                returnKeyType="next"
+                style={styles.bigInput}
+                accessibilityLabel="Name"
               />
             </Field>
 
-            <Field label="Ticker" hint={symbol.length > 0 && !symbolOk ? "2–10 letters or digits" : undefined}>
-              <TextInput
-                value={symbol}
-                onChangeText={(next) => setSymbol(next.toUpperCase())}
-                placeholder="NIGHT"
-                placeholderTextColor={theme.colors.faint}
-                autoCapitalize="characters"
-                style={styles.input}
-                maxLength={10}
-              />
+            <Field label="Ticker" error={null} hint={null}>
+              <View style={[styles.tickerBox, symbolTone === "bad" ? styles.inputBad : symbolTone === "ok" ? styles.inputOk : null]}>
+                <View style={styles.dollar}>
+                  <Text style={styles.dollarText}>$</Text>
+                </View>
+                <TextInput
+                  value={symbol}
+                  onChangeText={(t) => {
+                    setSymbolEdited(true);
+                    setSymbol(cleanTicker(t));
+                  }}
+                  onBlur={() => setTouched((t) => ({ ...t, symbol: true }))}
+                  placeholder="NIGHT"
+                  placeholderTextColor={theme.colors.faint}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  style={[styles.bigInput, styles.tickerInput]}
+                  accessibilityLabel="Ticker"
+                />
+              </View>
+              <Text
+                style={[
+                  styles.hint,
+                  symbolTone === "ok" ? { color: theme.colors.pos } : symbolTone === "bad" ? { color: theme.colors.neg } : null,
+                ]}
+              >
+                {symbolHint}
+              </Text>
             </Field>
 
-            <Field
-              label="Caption"
-              hint={!captionOk ? `${caption.trim().length - MAX_CAPTION} over the limit` : undefined}
-            >
+            <Field label="Caption" error={!captionOk ? `${caption.trim().length - MAX_CAPTION} over the limit` : null} hint={null}>
               <TextInput
                 value={caption}
                 onChangeText={setCaption}
-                placeholder={kind === "reel" ? "Street level, 2am." : "Say what this is"}
+                placeholder="Say what this is"
                 placeholderTextColor={theme.colors.faint}
                 multiline
-                style={[styles.input, styles.caption]}
-                maxLength={MAX_CAPTION + 20}
+                style={[styles.bigInput, styles.captionInput]}
+                accessibilityLabel="Caption"
               />
+              <Text style={[styles.counter, !captionOk ? { color: theme.colors.neg } : null]}>
+                {caption.trim().length}/{MAX_CAPTION}
+              </Text>
             </Field>
-          </Card>
 
-          <Text style={styles.sectionTitle}>Curve</Text>
-          <Text style={styles.sectionLede}>
-            Sixteen liquidity-weighted segments. The weights decide how the price
-            behaves, not just where it starts.
-          </Text>
-
-          <View style={styles.presets}>
-            {PRESETS.map((option) => {
-              const on = preset === option.id;
-              return (
-                <Pressable key={option.id} onPress={() => setPreset(option.id)}>
-                  <Card style={[styles.preset, on && styles.presetOn]}>
-                    <View style={styles.presetRow}>
-                      <View style={styles.presetText}>
-                        <View style={styles.presetHead}>
-                          <Text style={styles.presetLabel}>{option.label}</Text>
-                          {on && <Pill label="Selected" tone="lime" />}
-                        </View>
-                        <Text style={styles.presetBlurb}>{option.blurb}</Text>
-                      </View>
-                      {/* The curve itself, drawn from the same sixteen weights
-                          the launch uses. The weights are the whole decision. */}
-                      <CurvePreview preset={option.id} active={on} />
-                    </View>
-                  </Card>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {error && (
-            <Card style={styles.errorCard}>
-              <Text style={styles.errorText}>{error}</Text>
-            </Card>
-          )}
-
-          {log.length > 0 ? <LaunchLog entries={log} /> : null}
-
-          {unlisted ? (
-            <Button label={status ?? "Retry listing"} tall onPress={retryListing} loading={busy} />
-          ) : (
-            <Button
-              label={status ?? (kind === "reel" ? "Launch reel" : "Launch post")}
-              tall
-              onPress={launch}
-              loading={busy}
-              disabled={!canLaunch}
+            <Text style={styles.sectionTitle}>How it looks in the feed</Text>
+            <PostPreview
+              wallet={wallet.address}
+              name={name.trim() || "Your post"}
+              symbol={cleanSymbol || "TICKER"}
+              caption={caption.trim()}
+              stillUri={stillUri}
+              video={media?.type === "video" ? media.uri : null}
             />
-          )}
-          {/* Why the button is off, instead of a dead button and a guess. */}
-          {!busy && !unlisted && missing ? <Text style={styles.missing}>{missing}</Text> : null}
-          {busy && status ? <Text style={styles.missing}>{status}</Text> : null}
-          <Text style={styles.footnote}>
-            Two signatures: one to create the curve config, one to open the pool.
-            They cannot be combined — a sixteen-segment curve does not fit in a
-            single Solana packet with the pool init.
-          </Text>
+          </ScrollView>
+
+          {/* 3. Launch */}
+          <ScrollView style={{ width }} contentContainerStyle={[styles.page, { paddingBottom: tabBar.height + 110 }]} showsVerticalScrollIndicator={false}>
+            <Text style={styles.sectionTitle}>Pick a curve</Text>
+            <Text style={styles.sectionSub}>It sets how your post's price moves as people buy in.</Text>
+            <View style={{ gap: 12 }}>
+              {CURVE_PRESETS.map((p) => (
+                <CurveCard key={p.id} preset={p} selected={preset === p.id} width={width - 32} onSelect={() => setPreset(p.id)} />
+              ))}
+            </View>
+
+            <Pressable
+              onPress={() => setAdvanced((a) => !a)}
+              style={styles.disclosure}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: advanced }}
+            >
+              <Text style={styles.disclosureText}>Advanced</Text>
+              <Svg width={14} height={14} viewBox="0 0 24 24" style={{ transform: [{ rotate: advanced ? "180deg" : "0deg" }] }}>
+                <Path d="M6 9l6 6 6-6" stroke={theme.colors.muted} strokeWidth={2.4} fill="none" strokeLinecap="round" />
+              </Svg>
+            </Pressable>
+            {advanced ? (
+              <Text style={styles.advanced}>
+                Each curve is a Meteora Dynamic Bonding Curve made of 16 segments, each with its own liquidity weight. More
+                liquidity in a segment means the price climbs more slowly there. When the curve fills, the pool graduates to a
+                Meteora DAMM v2 pool that keeps trading on its own.
+              </Text>
+            ) : null}
+
+            <View style={styles.summary}>
+              <View style={styles.summaryHead}>
+                <View style={styles.summaryThumb}>
+                  {stillUri ? <ExpoImage source={{ uri: stillUri }} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.summaryName} numberOfLines={1}>
+                    {name.trim() || "Your post"}
+                  </Text>
+                  <Text style={styles.summaryTicker}>${cleanSymbol || "TICKER"}</Text>
+                </View>
+              </View>
+              <SummaryRow label="Curve" value={CURVE_PRESETS.find((p) => p.id === preset)?.label ?? preset} />
+              <SummaryRow label="Network fee" value={`≈ ${LAUNCH_FEE_SOL} SOL, mostly account rent`} />
+              <SummaryRow
+                label="Your balance"
+                value={!wallet.address ? "No wallet connected" : sol === null ? "Reading…" : `${sol.toFixed(4)} SOL`}
+                tone={lowSol ? "bad" : undefined}
+              />
+              <View style={styles.approvals}>
+                <Text style={styles.approvalsTitle}>2 quick approvals</Text>
+                <Text style={styles.approvalsText}>One creates your curve, one opens the pool. Solana can't fit both in one.</Text>
+              </View>
+              {lowSol ? <Text style={styles.inlineError}>A launch needs about {LAUNCH_FEE_SOL} SOL. Get devnet SOL first, it's free.</Text> : null}
+            </View>
+          </ScrollView>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+
+      {/* Sticky CTA above the tab bar */}
+      <View style={[styles.ctaBar, { bottom: tabBar.height - 6 }]}>
+        {step > 0 ? (
+          <Pressable onPress={() => goTo(step - 1)} style={styles.back} accessibilityRole="button" accessibilityLabel="Back">
+            <Svg width={18} height={18} viewBox="0 0 24 24">
+              <Path d="M15 6l-6 6 6 6" stroke={theme.colors.text} strokeWidth={2.4} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </Pressable>
+        ) : null}
+        <Pressable
+          onPress={cta.enabled ? cta.onPress : undefined}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !cta.enabled }}
+          style={({ pressed }) => [styles.cta, !cta.enabled ? styles.ctaOff : null, { transform: [{ scale: pressed && cta.enabled ? 0.98 : 1 }] }]}
+        >
+          <Text style={[styles.ctaText, !cta.enabled ? { color: theme.colors.muted } : null]} numberOfLines={1}>
+            {cta.label}
+          </Text>
+        </Pressable>
+      </View>
+
+      <LaunchProgress
+        visible={progressOpen}
+        steps={steps}
+        error={launchError}
+        busy={busy}
+        onRetry={() => void launch()}
+        onClose={() => {
+          if (busy) return;
+          setProgressOpen(false);
+          setLaunchError(null);
+        }}
+      />
+      <LaunchSuccess
+        visible={live !== null}
+        name={live?.name ?? ""}
+        symbol={live?.symbol ?? ""}
+        imageUri={stillUri}
+        onView={() => {
+          const mint = live?.baseMint;
+          reset();
+          if (mint) router.push(`/coin/${mint}` as never);
+        }}
+        onShare={() => {
+          if (!live) return;
+          void Share.share({
+            message: `${live.name} ($${live.symbol}) is live on Juno. Every post is a market. ${appUrl()}/coin/${live.baseMint}`,
+          }).catch(() => undefined);
+        }}
+        onDone={reset}
+      />
+    </View>
   );
 }
 
-const MAX_CAPTION = 280;
-/** Matches the upload route's own limit, so a doomed upload is refused before it starts. */
-const MAX_BYTES = 25 * 1024 * 1024;
+/* ------------------------------------------------------------------ */
 
-/**
- * The photo or video, picked from the library and previewed at its own shape.
- *
- * A reel previews playing and muted, the way it will sit in the feed, so the
- * creator sees what everyone else will before they sign for it.
- */
-function MediaPicker({
-  kind,
-  media,
-  onPick,
-  disabled,
-}: {
-  kind: "post" | "reel";
-  media: ImagePicker.ImagePickerAsset | null;
-  onPick: () => void;
-  disabled: boolean;
-}) {
-  if (!media) {
-    return (
-      <Pressable onPress={onPick} disabled={disabled} accessibilityRole="button">
-        <View style={[styles.drop, { aspectRatio: kind === "reel" ? 4 / 5 : 1 }]}>
-          <View style={styles.dropDisc}>
-            <Text style={styles.dropPlus}>+</Text>
-          </View>
-          <Text style={styles.dropTitle}>{kind === "reel" ? "Add a video" : "Add a photo"}</Text>
-          <Text style={styles.dropBlurb}>
-            {kind === "reel" ? "Vertical works best. Up to 25MB." : "Square works best. Up to 25MB."}
-          </Text>
-        </View>
-      </Pressable>
-    );
-  }
-
-  const ratio =
-    media.width && media.height ? Math.max(0.56, Math.min(1.25, media.width / media.height)) : 1;
-
+function Chip({ label, onPress }: { label: string; onPress: () => void }) {
   return (
-    <View style={[styles.preview, { aspectRatio: ratio }]}>
-      {media.type === "video" ? (
-        <VideoPreview uri={media.uri} />
-      ) : (
-        <ExpoImage source={{ uri: media.uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
-      )}
-      <Pressable onPress={onPick} disabled={disabled} style={styles.change} accessibilityRole="button">
-        <Text style={styles.changeText}>Change</Text>
-      </Pressable>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.chip, { opacity: pressed ? 0.8 : 1 }]} accessibilityRole="button">
+      <Text style={styles.chipText}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function BigAction({ label, onPress, primary }: { label: string; onPress: () => void; primary?: boolean }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.bigAction, primary ? styles.bigActionPrimary : null, { transform: [{ scale: pressed ? 0.97 : 1 }] }]}
+      accessibilityRole="button"
+    >
+      <Text style={styles.bigActionText}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function Field({ label, error, hint, children }: { label: string; error: string | null; hint: string | null; children: React.ReactNode }) {
+  return (
+    <View style={{ gap: 8 }}>
+      <Text style={styles.label}>{label}</Text>
+      {children}
+      {error ? <Text style={[styles.hint, { color: theme.colors.neg }]}>{error}</Text> : hint ? <Text style={styles.hint}>{hint}</Text> : null}
+    </View>
+  );
+}
+
+function SummaryRow({ label, value, tone }: { label: string; value: string; tone?: "bad" }) {
+  return (
+    <View style={styles.summaryRow}>
+      <Text style={styles.summaryLabel}>{label}</Text>
+      <Text style={[styles.summaryValue, tone === "bad" ? { color: theme.colors.neg } : null]} numberOfLines={2}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -496,150 +794,210 @@ function VideoPreview({ uri }: { uri: string }) {
     instance.muted = true;
     instance.play();
   });
-  return (
-    <VideoView
-      player={player}
-      style={StyleSheet.absoluteFill}
-      contentFit="cover"
-      nativeControls={false}
-    />
-  );
+  return <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} />;
 }
 
-function Field({
-  label,
-  hint,
-  children,
+/** The post as the feed will draw it, so the creator sees what everyone else will. */
+function PostPreview({
+  wallet,
+  name,
+  symbol,
+  caption,
+  stillUri,
+  video,
 }: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
+  wallet: string | null;
+  name: string;
+  symbol: string;
+  caption: string;
+  stillUri: string | null;
+  video: string | null;
 }) {
+  const handle = useHandle(wallet);
   return (
-    <View style={{ gap: 6 }}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      {children}
-      {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
-    </View>
-  );
-}
-
-const MONO = Platform.select({ ios: "Menlo", default: "monospace" });
-
-type LogEntry = { label: string; receipt: string; tx?: boolean; at: Date };
-
-function shorten(value: string): string {
-  const bare = value.replace(/^ipfs:\/\//, "");
-  return bare.length > 14 ? `${bare.slice(0, 6)}…${bare.slice(-6)}` : bare;
-}
-
-/** The launch, step by step, with each receipt and the second it landed. */
-function LaunchLog({ entries }: { entries: LogEntry[] }) {
-  return (
-    <View style={styles.log}>
-      {entries.map((entry, index) => (
-        <Pressable
-          key={`${entry.label}-${index}`}
-          disabled={!entry.tx}
-          onPress={() => void Linking.openURL(juno.explorer("tx", entry.receipt))}
-          style={styles.logRow}
-          accessibilityRole={entry.tx ? "link" : undefined}
-        >
-          <Text style={styles.logTick}>✓</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.logLabel}>{entry.label}</Text>
-            <Text style={styles.logReceipt} numberOfLines={1}>
-              {entry.tx ? "tx " : entry.receipt.startsWith("ipfs://") ? "ipfs " : ""}
-              {shorten(entry.receipt)}
-            </Text>
-          </View>
-          <Text style={styles.logTime}>
-            {entry.at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+    <View style={styles.feedCard}>
+      <View style={styles.feedHead}>
+        <Identicon seed={wallet ?? "you"} size={36} label={handle ? handle.slice(0, 2) : "YO"} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.feedHandle}>{handle || "you"}</Text>
+          <Text style={styles.feedMeta}>now · new market</Text>
+        </View>
+      </View>
+      <View style={styles.feedMedia}>
+        {video ? <VideoPreview uri={video} /> : stillUri ? <ExpoImage source={{ uri: stillUri }} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
+      </View>
+      <View style={styles.feedActions}>
+        <Text style={styles.feedWorth}>$0 mkt cap</Text>
+        <View style={{ flex: 1 }} />
+        <View style={styles.feedBuy}>
+          <Text style={styles.feedBuyText}>Buy</Text>
+        </View>
+      </View>
+      <View style={{ paddingHorizontal: 14, paddingBottom: 14, gap: 4 }}>
+        <Text style={styles.feedTitle} numberOfLines={2}>
+          {name} <Text style={styles.feedTicker}>${symbol}</Text>
+        </Text>
+        {caption ? (
+          <Text style={styles.feedCaption} numberOfLines={3}>
+            {caption}
           </Text>
-        </Pressable>
-      ))}
+        ) : null}
+      </View>
     </View>
   );
 }
+
+const CORNER = 22;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.bg },
-  body: { paddingHorizontal: 16, paddingBottom: 140, gap: 12 },
-  title: { fontSize: theme.type.screen.size, fontWeight: "800", color: theme.colors.ink },
-  lede: { fontSize: theme.type.body.size, color: theme.colors.muted, lineHeight: 21 },
-  form: { gap: 16 },
-  fieldLabel: { fontSize: theme.type.label.size, fontWeight: "500", color: theme.colors.muted },
-  fieldHint: { fontSize: theme.type.micro.size, fontWeight: "500", color: theme.colors.neg },
-  input: {
-    height: 48,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surfaceAlt,
-    paddingHorizontal: 16,
-    fontSize: theme.type.body.size,
-    color: theme.colors.text,
-  },
-  sectionTitle: { fontSize: theme.type.title.size, fontWeight: "700", color: theme.colors.text, marginTop: 8 },
-  sectionLede: { fontSize: theme.type.label.size, fontWeight: "500", color: theme.colors.muted, lineHeight: 19 },
-  presets: { gap: 8 },
-  preset: { gap: 6, padding: 16 },
-  presetOn: { borderWidth: 2, borderColor: theme.colors.lime },
-  presetRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  presetText: { flex: 1, gap: 6 },
-  presetHead: { flexDirection: "row", alignItems: "center", gap: 8 },
-  presetLabel: { fontSize: theme.type.body.size, fontWeight: "600", color: theme.colors.ink },
-  presetBlurb: { fontSize: theme.type.label.size, fontWeight: "500", color: theme.colors.muted, lineHeight: 19 },
-  errorCard: { backgroundColor: "rgba(217,45,32,0.08)" },
-  errorText: { fontSize: theme.type.body.size, color: theme.colors.neg, lineHeight: 21 },
-  caption: { height: 88, paddingTop: 12, textAlignVertical: "top" },
-  log: {
-    backgroundColor: theme.colors.ink,
-    borderRadius: 16,
-    paddingVertical: 6,
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, height: 52 },
+  close: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface },
+  headerTitle: { flex: 1, textAlign: "center", fontSize: theme.type.lead.size, fontWeight: "800", color: theme.colors.text },
+  progress: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingBottom: 10 },
+  progressItem: { flex: 1, gap: 6, minHeight: 44, justifyContent: "center" },
+  progressTrack: { height: 4, borderRadius: 2, backgroundColor: theme.colors.lineStrong, overflow: "hidden" },
+  progressFill: { height: 4, borderRadius: 2, backgroundColor: theme.colors.ink },
+  progressLabel: { fontSize: 12, fontWeight: "700", color: theme.colors.muted },
+  progressLabelOn: { color: theme.colors.text },
+  page: { paddingHorizontal: 16, paddingTop: 6, gap: 18 },
+  kindSwitch: { flexDirection: "row", alignSelf: "center", padding: 4, borderRadius: 999, backgroundColor: theme.colors.surface },
+  kindItem: { minHeight: 40, minWidth: 96, paddingHorizontal: 18, borderRadius: 999, alignItems: "center", justifyContent: "center" },
+  kindItemOn: { backgroundColor: theme.colors.ink },
+  kindText: { fontSize: theme.type.label.size, fontWeight: "800", color: theme.colors.muted },
+  kindTextOn: { color: theme.colors.onInk },
+  preview: { width: "100%", borderRadius: theme.radius.lg, overflow: "hidden", backgroundColor: theme.colors.ink },
+  previewChips: { position: "absolute", bottom: 26, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 8 },
+  chip: {
+    minHeight: 36,
     paddingHorizontal: 14,
-  },
-  logRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
-  logTick: { color: theme.colors.lime, fontSize: 14, fontWeight: "900" },
-  logLabel: { color: theme.colors.onInk, fontSize: 14, fontWeight: "700" },
-  logReceipt: { color: "#9FB09A", fontSize: 12, fontFamily: MONO, marginTop: 2 },
-  logTime: { color: "#9FB09A", fontSize: 12, fontFamily: MONO },
-  missing: { fontSize: theme.type.label.size, fontWeight: "600", color: theme.colors.muted, textAlign: "center" },
-  drop: {
-    width: "100%",
-    borderRadius: theme.radius.lg,
-    borderWidth: 2,
-    borderStyle: "dashed",
-    borderColor: theme.colors.lineStrong,
-    backgroundColor: theme.colors.surface,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    backgroundColor: "rgba(18,21,14,0.72)",
   },
-  dropDisc: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  chipText: { fontSize: 13, fontWeight: "800", color: theme.colors.onInk },
+  cropFrame: { position: "absolute", top: 14, left: 14, right: 14, bottom: 14 },
+  corner: { position: "absolute", width: CORNER, height: CORNER, borderColor: theme.colors.lime },
+  tl: { top: 0, left: 0, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 8 },
+  tr: { top: 0, right: 0, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 8 },
+  bl: { bottom: 0, left: 0, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 8 },
+  br: { bottom: 0, right: 0, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 8 },
+  empty: {
+    width: "100%",
+    borderRadius: theme.radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    padding: 24,
+    backgroundColor: theme.colors.surface,
+    ...theme.shadow.card,
+  },
+  emptyIcon: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: theme.colors.lime,
+    marginBottom: 4,
   },
-  dropPlus: { fontSize: 30, fontWeight: "600", color: theme.colors.onLime, marginTop: -3 },
-  dropTitle: { fontSize: theme.type.body.size, fontWeight: "800", color: theme.colors.text },
-  dropBlurb: { fontSize: theme.type.label.size, color: theme.colors.muted },
-  preview: {
-    width: "100%",
-    borderRadius: theme.radius.lg,
-    overflow: "hidden",
-    backgroundColor: theme.colors.ink,
-  },
-  change: {
-    position: "absolute",
-    right: 12,
-    bottom: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+  emptyTitle: { fontSize: theme.type.heading.size, fontWeight: "900", color: theme.colors.text, letterSpacing: -0.6 },
+  emptySub: { fontSize: theme.type.label.size, color: theme.colors.muted, textAlign: "center" },
+  emptyActions: { flexDirection: "row", gap: 10, marginTop: 8 },
+  bigAction: {
+    minHeight: 50,
+    minWidth: 128,
+    paddingHorizontal: 20,
     borderRadius: 999,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.lineStrong,
   },
-  changeText: { fontSize: 13, fontWeight: "700", color: "#FFFFFF" },
-  footnote: { fontSize: theme.type.micro.size, fontWeight: "500", color: theme.colors.faint, lineHeight: 16, marginTop: 8 },
+  bigActionPrimary: { backgroundColor: theme.colors.lime, borderColor: theme.colors.lime },
+  bigActionText: { fontSize: theme.type.body.size, fontWeight: "800", color: theme.colors.onLime },
+  inlineError: { fontSize: theme.type.label.size, lineHeight: 19, color: theme.colors.neg },
+  label: { fontSize: theme.type.label.size, fontWeight: "800", color: theme.colors.text },
+  hint: { fontSize: theme.type.caption.size, color: theme.colors.muted },
+  bigInput: {
+    minHeight: 56,
+    paddingHorizontal: 16,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surface,
+    fontSize: theme.type.title.size,
+    fontWeight: "700",
+    color: theme.colors.text,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+  },
+  tickerBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1.5,
+    borderColor: "transparent",
+    paddingLeft: 8,
+  },
+  inputBad: { borderColor: theme.colors.neg },
+  inputOk: { borderColor: theme.colors.pos },
+  dollar: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.lime },
+  dollarText: { fontSize: 20, fontWeight: "900", color: theme.colors.onLime },
+  tickerInput: { flex: 1, backgroundColor: "transparent", letterSpacing: 1.5, borderWidth: 0 },
+  captionInput: { minHeight: 110, paddingTop: 14, fontSize: theme.type.body.size, fontWeight: "500", textAlignVertical: "top" },
+  counter: { alignSelf: "flex-end", fontSize: 12, color: theme.colors.muted, fontVariant: ["tabular-nums"], marginTop: -2 },
+  sectionTitle: { fontSize: theme.type.title.size, fontWeight: "900", color: theme.colors.text, letterSpacing: -0.4, marginTop: 4 },
+  sectionSub: { fontSize: theme.type.label.size, color: theme.colors.muted, marginTop: -10 },
+  feedCard: { borderRadius: theme.radius.lg, overflow: "hidden", backgroundColor: theme.colors.surface, ...theme.shadow.card },
+  feedHead: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12 },
+  feedHandle: { fontSize: theme.type.label.size, fontWeight: "800", color: theme.colors.text },
+  feedMeta: { fontSize: 12, color: theme.colors.muted },
+  feedMedia: { width: "100%", aspectRatio: 1, backgroundColor: theme.colors.surfaceAlt },
+  feedActions: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10 },
+  feedWorth: { fontSize: theme.type.body.size, fontWeight: "800", color: theme.colors.text },
+  feedBuy: { minHeight: 36, paddingHorizontal: 18, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.lime },
+  feedBuyText: { fontSize: theme.type.label.size, fontWeight: "800", color: theme.colors.onLime },
+  feedTitle: { fontSize: theme.type.body.size, fontWeight: "800", color: theme.colors.text },
+  feedTicker: { color: theme.colors.muted, fontWeight: "700" },
+  feedCaption: { fontSize: theme.type.label.size, lineHeight: 19, color: theme.colors.text },
+  disclosure: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44 },
+  disclosureText: { fontSize: theme.type.label.size, fontWeight: "800", color: theme.colors.muted },
+  advanced: { fontSize: theme.type.label.size, lineHeight: 20, color: theme.colors.text, marginTop: -8 },
+  summary: { gap: 12, padding: 16, borderRadius: theme.radius.lg, backgroundColor: theme.colors.surface, ...theme.shadow.card },
+  summaryHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+  summaryThumb: { width: 52, height: 52, borderRadius: 14, overflow: "hidden", backgroundColor: theme.colors.surfaceAlt },
+  summaryName: { fontSize: theme.type.lead.size, fontWeight: "800", color: theme.colors.text },
+  summaryTicker: { fontSize: theme.type.label.size, fontWeight: "800", color: theme.colors.muted, letterSpacing: 0.5 },
+  summaryRow: { flexDirection: "row", gap: 12, justifyContent: "space-between" },
+  summaryLabel: { fontSize: theme.type.label.size, color: theme.colors.muted },
+  summaryValue: { flexShrink: 1, textAlign: "right", fontSize: theme.type.label.size, fontWeight: "700", color: theme.colors.text },
+  approvals: { padding: 12, borderRadius: theme.radius.md, backgroundColor: theme.colors.limeSoft, gap: 2 },
+  approvalsTitle: { fontSize: theme.type.label.size, fontWeight: "800", color: theme.colors.onLime },
+  approvalsText: { fontSize: theme.type.caption.size, lineHeight: 16, color: theme.colors.onLime },
+  ctaBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 14,
+    backgroundColor: theme.colors.bg,
+  },
+  back: { width: 54, height: 54, borderRadius: 27, alignItems: "center", justifyContent: "center", backgroundColor: theme.colors.surface },
+  cta: {
+    flex: 1,
+    minHeight: 54,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 18,
+    backgroundColor: theme.colors.lime,
+    ...theme.shadow.card,
+  },
+  ctaOff: { backgroundColor: theme.colors.surface, shadowOpacity: 0 },
+  ctaText: { fontSize: theme.type.body.size, fontWeight: "800", color: theme.colors.onLime },
 });
