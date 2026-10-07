@@ -73,7 +73,7 @@ is a plain `adb`/`uiautomator` tap-by-text loop.
 
 ## Current APK
 
-1.3.1 (versionCode 123), sha256 `76ac5fcb25d06dbf0096c784e54c85c50921d141537417e3ba9c272ac1213ca7`, signed with the same keystore (cert `984c2ec7…a3f6`), uploaded to release `clockin-v1` with `--clobber`; the download re-hashes to the same value. The audit below was done on 1.2.1; 1.3.0 and 1.3.1 add only JS (the profile, then clearer boost labels) and keeps the same manifest (0 hits for the removed permissions, 0 for `localhost:3000`).
+1.3.2 (versionCode 124), sha256 `041f3ce80e59eef8acef380a2c2e932ea3b348a34c6ab1a2b97d2bbf2fc62e34`, signed with the same keystore (cert `984c2ec7…a3f6`), uploaded to release `clockin-v1` with `--clobber`; the download re-hashes to the same value. The audit below was done on 1.2.1; 1.3.0–1.3.2 add only JS (the profile, clearer boost labels, the bottom-sheet fix) and keeps the same manifest (0 hits for the removed permissions, 0 for `localhost:3000`).
 
 ## Instagram-style profile (Oct 7, branch `profile-ig`, merged)
 
@@ -97,6 +97,19 @@ Fixed while testing: a boost also appears in the creator's history, so
 "boosts given" now counts only transactions the wallet paid for; one shared
 bottom sheet could reopen off-screen, so each opening is a fresh instance.
 Screenshots: `clockin/screens/profile-ig/` (before-*, after-*).
+**1.3.2 bottom-sheet fix.** Root cause: the profile cleared a sheet's content
+the moment it closed, the sheet re-measured mid-exit, and `onLayout` called
+`y.setValue`, which cancels the running exit animation. The animation then
+never reported `finished`, the sheet never unmounted, and a half-opaque scrim
+stayed over the screen swallowing every tap. Fixed in `components/BottomSheet.tsx`
+(no repositioning while closing; unmount on any animation end plus a timeout
+fallback; animations and keyboard offset reset on open; a closing sheet takes
+no touches at all, so no scrim can ever block input) and in `ProfileView`
+(content kept until the sheet is gone). Re-tested on the simulator: every
+highlight sheet, settings and edit opened and closed by backdrop tap and by
+swipe-down in sequence, the Buy sheet by its X and by backdrop, then a rapid
+run of ten open/close taps; the screen stayed responsive throughout.
+
 Not done: `.skr` name resolution (mainnet AllDomains lookup, skipped as not cheap).
 
 ## Android audit (Oct 7, static, no emulator)

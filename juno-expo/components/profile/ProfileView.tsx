@@ -102,8 +102,14 @@ export function ProfileView({
    * reopened off-screen; a new key per opening avoids that state entirely.
    */
   const [sheetKey, setSheetKey] = useState(0);
+  // What the sheet shows. Kept after a close so the content does not vanish
+  // (and the sheet re-measure) while it is still sliding away.
+  const [shown, setShown] = useState<Highlight | "settings" | "edit" | null>(null);
   const setSheet = useCallback((next: Highlight | "settings" | "edit" | null) => {
-    if (next) setSheetKey((k) => k + 1);
+    if (next) {
+      setSheetKey((k) => k + 1);
+      setShown(next);
+    }
     setSheetState(next);
   }, []);
   const [trading, setTrading] = useState<Coin | null>(null);
@@ -516,7 +522,7 @@ export function ProfileView({
       {/* Sheets */}
       <BottomSheet key={sheetKey} visible={sheet !== null} onClose={() => setSheet(null)}>
         <View style={[styles.sheet, { paddingBottom: 30 + (self ? 80 : insets.bottom) }]}>
-          {sheet === "streak" ? (
+          {shown === "streak" ? (
             self ? (
               <>
                 <SheetTitle kicker="DAILY CLOCK-IN" title={streak > 0 ? `${streak}-day streak` : "Start a streak"} />
@@ -537,7 +543,7 @@ export function ProfileView({
                 ) : null}
               </>
             )
-          ) : sheet === "skr" ? (
+          ) : shown === "skr" ? (
             <>
               <SheetTitle kicker={SKR_LABEL.toUpperCase()} title={`${skrBalance === null ? "—" : formatSkr(skrBalance)} ${SKR_SHORT}`} />
               <Text style={styles.sheetBody}>
@@ -551,7 +557,7 @@ export function ProfileView({
                 The dSKR mint on Solscan
               </Text>
             </>
-          ) : sheet === "boosts" ? (
+          ) : shown === "boosts" ? (
             <>
               <SheetTitle
                 kicker="BOOSTED"
@@ -589,7 +595,7 @@ export function ProfileView({
                 })
               )}
             </>
-          ) : sheet === "seeker" ? (
+          ) : shown === "seeker" ? (
             <>
               <SheetTitle kicker="SEEKER GENESIS TOKEN" title="Seeker verified" />
               <Text style={styles.sheetBody}>
@@ -598,7 +604,7 @@ export function ProfileView({
               </Text>
               {seekerMint ? <Text style={styles.mono}>{seekerMint}</Text> : null}
             </>
-          ) : sheet === "coins" ? (
+          ) : shown === "coins" ? (
             <>
               <SheetTitle
                 kicker="COINS HELD"
@@ -636,7 +642,7 @@ export function ProfileView({
                 See all holdings
               </Text>
             </>
-          ) : sheet === "edit" ? (
+          ) : shown === "edit" ? (
             <>
               <SheetTitle kicker="EDIT PROFILE" title="Your name" />
               <Text style={styles.sheetBody}>
@@ -644,7 +650,7 @@ export function ProfileView({
               </Text>
               <NameEditor address={wallet} />
             </>
-          ) : sheet === "settings" ? (
+          ) : shown === "settings" ? (
             <SettingsBody
               wallet={wallet}
               onDisconnect={async () => {

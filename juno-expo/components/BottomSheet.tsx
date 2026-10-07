@@ -92,6 +92,16 @@ export function BottomSheet({
   // exactly whatever it ends up containing.
   const height = useRef(Dimensions.get("window").height);
   const dragging = useRef(false);
+  /*
+   * True from the moment a close starts until the sheet unmounts. While it is
+   * set nothing may move `y` except the exit animation: a re-measure during a
+   * close used to `setValue` the sheet, which cancels the exit animation, so it
+   * never reported `finished`, the sheet never unmounted, and a half-opaque
+   * scrim stayed over the screen swallowing every tap.
+   */
+  const closing = useRef(false);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
 
   /*
    * How far the keyboard has pushed this sheet up.
@@ -151,14 +161,23 @@ export function BottomSheet({
   const dismiss = useCallback(() => {
     // Otherwise the keyboard is left on screen with nothing above it.
     Keyboard.dismiss();
+    closing.current = true;
+    const unmount = () => {
+      // A reopen during the exit animation keeps the sheet; anything else ends it.
+      if (!visibleRef.current) setMounted(false);
+      closing.current = false;
+    };
     Animated.timing(y, {
       toValue: height.current,
       duration: motion.exit,
       easing: motion.easeOut,
       useNativeDriver: nativeDriver,
-    }).start(({ finished }) => {
-      if (finished) setMounted(false);
-    });
+    }).start(unmount);
+    // Belt and braces: if the animation is interrupted and never calls back,
+    // the sheet still goes away a moment later.
+    setTimeout(() => {
+      if (closing.current) unmount();
+    }, motion.exit + 150);
     onClose();
   }, [onClose, y]);
 
@@ -224,14 +243,18 @@ export function BottomSheet({
       if (measured <= 0 || Math.abs(measured - height.current) < 1) return;
       height.current = measured;
       // Only reposition while the sheet is parked off-screen. Doing it mid-open
-      // would snap a sheet whose content just grew — a keyboard appearing, say.
-      if (!visible) y.setValue(measured);
+      // would snap a sheet whose content just grew — a keyboard appearing, say —
+      // and doing it mid-close would cancel the exit animation (see `closing`).
+      if (!visible && !closing.current) y.setValue(measured);
     },
     [visible, y],
   );
 
   useEffect(() => {
     if (!mounted || !visible) return;
+    closing.current = false;
+    y.stopAnimation();
+    lift.setValue(0);
     y.setValue(height.current);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (reduced) {
@@ -250,7 +273,7 @@ export function BottomSheet({
       useNativeDriver: nativeDriver,
       ...motion.sheetOpen,
     }).start();
-  }, [mounted, visible, reduced, y]);
+  }, [mounted, visible, reduced, y, lift]);
 
   if (!mounted) return null;
 
@@ -266,7 +289,9 @@ export function BottomSheet({
   });
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    // A sheet on its way out takes no touches at all, so a scrim left behind by
+    // any close path can never block the screen under it.
+    <View style={StyleSheet.absoluteFill} pointerEvents={visible ? "box-none" : "none"}>
       <Animated.View style={[StyleSheet.absoluteFill, styles.scrim, { opacity: scrim }]}>
         <Pressable
           style={StyleSheet.absoluteFill}
