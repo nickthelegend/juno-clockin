@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
  * Claim a name. Signed by this wallet, so nobody can take yours or rename
  * you; checked and stored by the server, so everyone sees the same one.
  */
-function NameEditor({ address }: { address: string }) {
+export function NameEditor({ address }: { address: string }) {
   const wallet = useWallet();
   const current = useName(address);
   const [editing, setEditing] = useState(false);

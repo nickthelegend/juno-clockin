@@ -153,7 +153,7 @@ export function useFollow(target: string) {
  * `EXPO_PUBLIC_APP_URL` names the app; in a browser the page's own origin is
  * already the app. The API host is the last resort and redirects to the app.
  */
-function appUrl(): string {
+export function appUrl(): string {
   const configured = process.env.EXPO_PUBLIC_APP_URL?.replace(/\/$/, "");
   if (configured) return configured;
   if (Platform.OS === "web" && typeof window !== "undefined") return window.location.origin;

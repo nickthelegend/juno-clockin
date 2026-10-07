@@ -349,3 +349,81 @@ export async function findSeekerGenesisToken(owner: string): Promise<string | nu
   }
   return null;
 }
+
+/* ------------------------------------------------------------------ */
+/* One wallet's own on-chain activity, for a profile                   */
+/* ------------------------------------------------------------------ */
+
+export type BoostGiven = { coin: string; amount: number; count: number; lastSignature: string };
+
+/**
+ * Clock-ins and boosts by one wallet, from one signature read.
+ *
+ * Both are memos the wallet itself signed, so its own history is the whole
+ * record: a profile needs no server to show someone's streak or what they
+ * backed. Boost amounts here are the memo's (the wallet's own claim); the
+ * feed ranking uses the treasury-verified totals instead.
+ */
+export async function readWalletActivity(
+  address: string,
+  connection: Connection = devnet(),
+): Promise<{ clockins: ClockInState; boosts: BoostGiven[]; received: { amount: number; count: number } }> {
+  const signatures = await connection.getSignaturesForAddress(new PublicKey(address), { limit: 400 });
+  const byDay = new Map<string, ClockInEntry>();
+  const boostRows: Array<{ signature: string; coin: string; amount: number }> = [];
+  for (const row of signatures) {
+    if (row.err) continue;
+    for (const body of memoBodies(row.memo)) {
+      if (body.startsWith(CLOCKIN_PREFIX)) {
+        const [day, , flag] = body.slice(CLOCKIN_PREFIX.length).split(":");
+        if (day && /^\d{4}-\d{2}-\d{2}$/.test(day) && !byDay.has(day)) {
+          byDay.set(day, { day, signature: row.signature, blockTime: row.blockTime ?? null, seeker: flag === "sgt" });
+        }
+      } else if (body.startsWith(BOOST_PREFIX)) {
+        const [coin, amountText] = body.slice(BOOST_PREFIX.length).split(":");
+        const amount = Number(amountText);
+        if (coin && Number.isFinite(amount) && amount > 0) boostRows.push({ signature: row.signature, coin, amount });
+      }
+    }
+  }
+
+  /*
+   * A boost touches the creator's token account too, so it shows up in the
+   * *creator's* history as well as the booster's. Who paid is the fee payer
+   * (the first account key), read per transaction, one at a time: the public
+   * RPC refuses batched transaction reads.
+   */
+  const boosts = new Map<string, BoostGiven>();
+  const received = { amount: 0, count: 0 };
+  for (const row of boostRows.slice(0, 40)) {
+    let payer: string | null = null;
+    try {
+      const tx = await connection.getParsedTransaction(row.signature, { maxSupportedTransactionVersion: 0 });
+      payer = tx?.transaction.message.accountKeys[0]?.pubkey.toBase58() ?? null;
+    } catch {
+      payer = null;
+    }
+    if (payer === address) {
+      const entry = boosts.get(row.coin) ?? { coin: row.coin, amount: 0, count: 0, lastSignature: row.signature };
+      entry.amount += row.amount;
+      entry.count += 1;
+      boosts.set(row.coin, entry);
+    } else if (payer) {
+      received.amount += row.amount * Number(BOOST_CREATOR_PCT) / 100;
+      received.count += 1;
+    }
+  }
+
+  const { streak, clockedToday, best } = streakFrom(new Set(byDay.keys()));
+  return {
+    clockins: {
+      streak,
+      clockedToday,
+      entries: [...byDay.values()].sort((a, b) => (a.day < b.day ? 1 : -1)),
+      best,
+      total: byDay.size,
+    },
+    boosts: [...boosts.values()].sort((a, b) => b.amount - a.amount),
+    received,
+  };
+}
