@@ -7,6 +7,7 @@ import { BOOST_AMOUNTS } from "../lib/clockin";
 import { useClockIn } from "../lib/clockinContext";
 import { explorerTx, SKR_LABEL, SKR_SHORT } from "../lib/solana";
 import { useWallet } from "../lib/wallet";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { theme } from "../theme";
 import { formatSkr } from "./ClockInCard";
 
@@ -32,6 +33,7 @@ export function BoostSheet({
 }) {
   const wallet = useWallet();
   const daily = useClockIn();
+  const insets = useSafeAreaInsets();
   const [amount, setAmount] = useState<number>(BOOST_AMOUNTS[0]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +72,7 @@ export function BoostSheet({
 
   return (
     <BottomSheet visible={target !== null} onClose={onClose} dismissable={!busy}>
-      <View style={[styles.sheet, { paddingBottom: 36 + bottomInset }]}>
+      <View style={[styles.sheet, { paddingBottom: 36 + Math.max(bottomInset, insets.bottom) }]}>
         <Text style={styles.kicker}>BOOST WITH SKR</Text>
         <Text style={styles.title} numberOfLines={1}>
           {target?.name ?? ""}

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Juno",
     "slug": "juno",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -19,7 +19,12 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "app.launch.juno",
-      "versionCode": 120
+      "versionCode": 121,
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -39,7 +44,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Juno uses your photos and videos so you can launch them as a post or a reel."
+          "photosPermission": "Juno uses your photos and videos so you can launch them as a post or a reel.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ],
       "./plugins/withQuotedBundleScript",

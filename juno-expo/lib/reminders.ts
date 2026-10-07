@@ -41,6 +41,8 @@ export async function enableReminders(): Promise<boolean> {
     const current = await Notifications.getPermissionsAsync();
     if (current.granted) return true;
     if (!current.canAskAgain) return false;
+    // Android 13+ only shows the POST_NOTIFICATIONS prompt once a channel exists.
+    await ensureChannel();
     const asked = await Notifications.requestPermissionsAsync();
     return asked.granted;
   } catch {

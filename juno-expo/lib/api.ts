@@ -29,10 +29,12 @@ function inferredHost(): string | null {
   return `http://${host}:3000`;
 }
 
+/** The deployed devnet API. A release build never guesses a LAN or localhost host. */
+const DEPLOYED_API = "https://juno-web-production-bd2e.up.railway.app";
+
 export const API_URL =
   process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "") ??
-  inferredHost() ??
-  "http://localhost:3000";
+  (__DEV__ ? (inferredHost() ?? "http://localhost:3000") : DEPLOYED_API);
 
 export class ApiError extends Error {
   readonly status: number;

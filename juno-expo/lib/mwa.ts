@@ -29,7 +29,9 @@ const ADDRESS_KEY = "juno.mwa.address.v1";
 
 export const APP_IDENTITY = {
   name: "Juno",
-  uri: "https://github.com/nickthelegend/juno-clockin",
+  // The Juno web build: wallets resolve `icon` against `uri`, and this
+  // favicon answers 200 (a GitHub repo URL has no favicon at that path).
+  uri: "https://juno-app-chi.vercel.app",
   icon: "favicon.ico",
 };
 

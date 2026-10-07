@@ -5,6 +5,7 @@ import * as Haptics from "expo-haptics";
 import { BottomSheet } from "./BottomSheet";
 import { Body, Title } from "./kit";
 import { MWA_AVAILABLE } from "../lib/mwa";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { theme } from "../theme";
 
 export type ConnectChoice = "mwa" | "privy" | "local";
@@ -33,6 +34,7 @@ export function ConnectSheet({
   error: string | null;
 }) {
   const [busy, setBusy] = useState<ConnectChoice | null>(null);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (!visible) setBusy(null);
@@ -53,7 +55,7 @@ export function ConnectSheet({
 
   return (
     <BottomSheet visible={visible} onClose={onClose} dismissable={busy === null}>
-      <View style={styles.sheet}>
+      <View style={[styles.sheet, { paddingBottom: 36 + insets.bottom }]}>
         <Title>Connect to Juno</Title>
         <Body muted>
           Juno runs on Solana devnet. Your wallet signs every trade, launch and daily clock-in.
