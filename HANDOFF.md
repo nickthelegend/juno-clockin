@@ -71,6 +71,39 @@ wallet to clock in" → (Connect wallet shows the no-wallet message) → Dev
 wallet (devnet only) → Clock in. The script used is in the session notes; it
 is a plain `adb`/`uiautomator` tap-by-text loop.
 
+## Android audit (Oct 7, static, no emulator)
+
+APK 1.2.1 (versionCode 121), sha256
+`a7dbdbc759584086b58f9cc968bcba47c7f2fa9efdb5c9ca21eeb64cff3904c2`, uploaded
+to release `clockin-v1` with `--clobber` (download re-hashed and matches).
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Manifest: package, version | `app.launch.juno`, 1.2.1 / 121 (was 1.2.0 / 120) — pass |
+| 1 | minSdk / targetSdk | 24 / 36 — pass |
+| 1 | Permissions | **Fixed.** Removed `SYSTEM_ALERT_WINDOW` (dev-only), `RECORD_AUDIO`, `CAMERA` (unused: the picker only reads the library) via `blockedPermissions`. `INTERNET`, `POST_NOTIFICATIONS`, `VIBRATE` present. The remaining badge/boot/wake-lock entries come from expo-notifications. |
+| 1 | Cleartext traffic | not enabled in release — pass |
+| 1 | `<queries>` for `solana-wallet` | present (added by the MWA library) — pass |
+| 2 | MWA native module in dex | `com/solanamobile/mobilewalletadapter` in classes.dex and classes4.dex — pass |
+| 2 | `chain: 'solana:devnet'`, identity, cached auth_token, reauthorize | pass (`lib/mwa.ts`; authorize with cached token, retry without it if rejected). **Fixed:** identity uri now `https://juno-app-chi.vercel.app` so the relative `favicon.ico` resolves (200). |
+| 2 | No wallet installed | `ERROR_WALLET_NOT_FOUND` mapped to "No Solana wallet app found…"; the Dev wallet (devnet only) option sits in the same sheet — pass (by code; not run on a device) |
+| 2 | "secure context" pitfall | bundle has 0 occurrences: Metro resolved the `react-native` (native) build — pass |
+| 3 | JS bundle | `assets/index.android.bundle`, Hermes bytecode (magic `c61fbc03`) — pass |
+| 3 | No localhost / LAN URLs | **Fixed:** `localhost:3000` fallback removed from release builds (falls back to the deployed API). 0 hits for `localhost:3000`, `10.0.2.2`, `192.168.`; remaining `localhost`/`127.0.0.1` strings are chain lists inside a bundled wallet library, never called. Devnet RPC and the API URL present. |
+| 4 | Polyfills | `lib/polyfills` (get-random-values, fast-text-encoding, Buffer) is the first import of the root layout — pass |
+| 5 | Back button | BottomSheet subscribes to `hardwareBackPress` and closes the sheet — pass |
+| 5 | Notification channel / Android 13 prompt | **Fixed:** channel is now created *before* `requestPermissionsAsync` (Android 13 shows no prompt until a channel exists) |
+| 5 | Edge-to-edge | `edgeToEdgeEnabled=true`; tab bar adds the bottom inset; **fixed:** connect and boost sheets now add the bottom inset too |
+| 5 | Deep links / WebView / keyboard | `juno://` scheme registered; no app WebView; `adjustResize` + KeyboardAvoidingView on post screens — pass |
+| 6 | Signing | `apksigner`: `CN=Juno CLOCK IN`, cert SHA-256 `984c2ec7…a3f6`, same keystore as v1 — pass |
+| 7 | ABIs | `arm64-v8a`, `x86_64` — pass |
+
+After the fixes the main flow was re-run on the iOS simulator with the same
+wallet: day-2 clock-in, streak read back from chain as 2, +15 dSKR — tx
+`37rYJK6Q8v6nyLiJSvQEdtxdvm31ByqgnyX4kVpPYNdzZFNMozB7zVURq8TXTpiw6sym5J1Be8fL6boFqWt5JSse`
+(memo `juno:clockin:v1:2026-10-07:s2`). The boosted post now leads the feed.
+Nothing has run past the first screen on Android.
+
 ## Not verified / known limits
 
 - **Real MWA signing is untested.** No wallet app is installed on the
@@ -92,7 +125,7 @@ is a plain `adb`/`uiautomator` tap-by-text loop.
 - Streaks follow the phone's local midnight and are not enforced on-chain (a
   memo can be written by anyone); the reward is what matters and that needs
   the server-side treasury above for mainnet.
-- Multi-day streaks have only been seen at day 1 (real days have to pass).
+- Multi-day streaks have been seen up to day 2 (6 and 7 Oct).
 - The web build at juno-app-chi.vercel.app predates CLOCK IN.
 
 ## Backend

@@ -90,16 +90,16 @@ apps have no reason to open them tomorrow: you trade once, and leave.
 
 ## Install the APK
 
-1. Download `juno-clockin.apk` (direct link: the GitHub release asset the
-   submitter uploads, see HANDOFF.md).
+1. Download `juno-clockin.apk`:
+   https://github.com/nickthelegend/juno-clockin/releases/download/clockin-v1/juno-clockin.apk
 2. On the phone, open it and allow installs from that source, or
    `adb install -r juno-clockin.apk`.
 3. Open Juno → **Get Started** → tap **Connect wallet to clock in** → **Connect
    wallet** (Seed Vault / Phantom / Solflare). A new wallet is funded with
    devnet SOL from Juno's faucet automatically on its first clock-in.
 
-APK: package `app.launch.juno`, version 1.2.0 (versionCode 120).
-sha256: `b87388a18ef8ea48f98d40b72c50bb693af5a1d971de7fd1cf08d7763e2299cf`
+APK: package `app.launch.juno`, version 1.2.1 (versionCode 121).
+sha256: `a7dbdbc759584086b58f9cc968bcba47c7f2fa9efdb5c9ca21eeb64cff3904c2`
 
 ## What is new for CLOCK IN (significant new mobile development)
 
