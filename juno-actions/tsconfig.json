@@ -1,0 +1,7 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "CommonJS", "moduleResolution": "Node10", "ignoreDeprecations": "6.0", "strict": true,
+    "esModuleInterop": true, "skipLibCheck": true, "noEmit": true, "types": ["node"]
+  },
+  "include": ["api/**/*.ts", "lib/**/*.ts", "shared/**/*.ts"]
+}

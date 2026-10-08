@@ -82,3 +82,8 @@ __pycache__/
 /clockin/apk/
 *.apk
 *.aab
+
+# Juno Blinks (Vercel)
+/juno-actions/.vercel
+/juno-actions/node_modules
+.vercel
