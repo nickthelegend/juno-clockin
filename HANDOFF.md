@@ -73,7 +73,7 @@ is a plain `adb`/`uiautomator` tap-by-text loop.
 
 ## Current APK
 
-1.5.0 (versionCode 126), sha256 `1a27543bc97e764848cdce0cd0f5010caad252f8695c4f311712ec46b1fc4958`, signed with the same keystore (cert `984c2ec7…a3f6`), uploaded to release `clockin-v1` with `--clobber`; the download re-hashes to the same value. The audit below was done on 1.2.1; 1.3.0–1.5.0 add JS only, plus the CAMERA permission back in 1.5.0 for the composer (profile, boost labels, bottom-sheet fix, polish, post composer) and keeps the same manifest (0 hits for the removed permissions, 0 for `localhost:3000`).
+1.6.0 (versionCode 129), sha256 `f0351f6c41ec70dc5a8d3ead4769b8ffbfb593c89bddb0ca36b48da6d32b726e`, signed with the same keystore (cert `984c2ec7…a3f6`), uploaded to release `clockin-v1` with `--clobber`; the download re-hashes to the same value. The audit below was done on 1.2.1; 1.3.0–1.5.0 add JS only, plus the CAMERA permission back in 1.5.0 for the composer (profile, boost labels, bottom-sheet fix, polish, post composer) and keeps the same manifest (0 hits for the removed permissions, 0 for `localhost:3000`).
 
 ## Post composer 1.5.0 (Oct 7, branch `post-composer`, merged)
 
