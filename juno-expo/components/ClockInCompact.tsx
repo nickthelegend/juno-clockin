@@ -50,11 +50,8 @@ export function ClockInStrip({ onOpen }: { onOpen: () => void }) {
   };
 
   const title = !wallet.address ? "Start a streak" : streak > 0 ? `${streak}-day streak` : "Day 1 is open";
-  const sub = !wallet.address
-    ? `Clock in daily to earn ${SKR_SHORT}`
-    : streak > 0
-      ? "Clock in before midnight to keep it"
-      : `Clock in daily to earn ${SKR_SHORT}`;
+  const earn = daily.rewardsEnabled ? `Clock in daily to earn ${SKR_SHORT}` : "Record your streak on Solana, daily";
+  const sub = !wallet.address ? earn : streak > 0 ? "Clock in before midnight to keep it" : earn;
   const cta = !wallet.address
     ? "Connect"
     : daily.busy === "funding"

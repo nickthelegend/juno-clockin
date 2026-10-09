@@ -60,6 +60,7 @@ export function ClockInProvider({ children }: { children: React.ReactNode }) {
   const [lastResult, setLastResult] = useState<ClockInResult | null>(null);
   const address = wallet.address;
   const generation = useRef(0);
+  const clockInLock = useRef(false);
 
   const refresh = useCallback(async () => {
     const mine = ++generation.current;
@@ -117,9 +118,11 @@ export function ClockInProvider({ children }: { children: React.ReactNode }) {
       await wallet.connect();
       return null;
     }
+    if(clockInLock.current)throw new Error("A clock-in is already in progress.");
+    clockInLock.current=true;
     const target = address;
-    const current = state.data ?? (await readClockIns(target));
     try {
+      const current = state.data ?? (await readClockIns(target));
       // A brand-new wallet has no SOL for the fee: fund it from Juno's devnet faucet first.
       const balance = await solBalance(target);
       if (balance !== null && balance < MIN_SOL_FOR_CLOCKIN) {
@@ -146,13 +149,14 @@ export function ClockInProvider({ children }: { children: React.ReactNode }) {
             }
           : s,
       );
-      setSkr((value) => (value === null ? result.reward : value + result.reward));
+      if (result.rewarded) setSkr((value) => (value === null ? null : value + result.reward));
       setTimeout(() => void refresh(), 4000);
       return result;
     } catch (error) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => undefined);
       throw error;
     } finally {
+      clockInLock.current=false;
       setBusy(null);
     }
   }, [address, wallet, state.data, seekerMint, refresh]);

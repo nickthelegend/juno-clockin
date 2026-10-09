@@ -33,7 +33,7 @@ import { feedChanged } from "../../lib/refresh";
 import { appUrl } from "../../lib/social";
 import { useTabBarHeight } from "../../lib/tabbar";
 import { checkTicker, cleanTicker, suggestTicker } from "../../lib/ticker";
-import { useWallet } from "../../lib/wallet";
+import { signAndSubmit, useWallet } from "../../lib/wallet";
 import { theme } from "../../theme";
 
 /**
@@ -322,9 +322,8 @@ export default function PostScreen() {
       for (const [index, tx] of built.steps.entries()) {
         const id = index === 0 ? "curve" : "pool";
         mark(id, { state: "active", detail: wallet.mode === "mwa" ? "Approve in your wallet" : index === 0 ? "Creating your curve" : "Opening the pool" });
-        const signed = await wallet.sign(tx.transaction);
         try {
-          const { signature } = await juno.submit({ transaction: signed, window: built.window });
+          const signature = await signAndSubmit(wallet,{transaction:tx.transaction,window:built.window});
           poolSignature = signature;
           mark(id, { state: "done", detail: index === 0 ? "Curve created" : "Pool open on Meteora", signature });
         } catch (stepError) {

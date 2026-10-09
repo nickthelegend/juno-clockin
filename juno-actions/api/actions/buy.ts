@@ -33,7 +33,8 @@ export default async function handler(req: Req, res: Res) {
         ? `${coin.description ? `${coin.description} ` : ""}Every post on Juno is its own market. Buy into this one on its Meteora bonding curve. Solana devnet, no real money.`
         : "Every post on Juno is its own market. Solana devnet, no real money.",
       label: "Buy",
-      disabled: graduated,
+      disabled: !coin || graduated,
+      ...(!coin ? { error: { message: "This post is unavailable from the Juno API. Try again when its market is available." } } : {}),
       ...(graduated ? { error: { message: "This curve has graduated to Meteora DAMM v2; trade it there." } } : {}),
       links: {
         actions: [
@@ -60,7 +61,7 @@ export default async function handler(req: Req, res: Res) {
       return send(res, 400, { message: "Missing or invalid account" });
     }
     const amount = Number(q(req, "amount"));
-    if (!Number.isFinite(amount) || amount <= 0 || amount > MAX) {
+    if (!Number.isFinite(amount) || amount < 0.001 || amount > MAX) {
       return send(res, 400, { message: `Choose an amount between 0.001 and ${MAX}` });
     }
     const built = await buildBuy(mint, account, amount);

@@ -8,8 +8,8 @@ const { withAppBuildGradle } = require("expo/config-plugins");
  * Nothing secret lives in the repo. Gradle reads a properties file outside it:
  * `$JUNO_SIGNING_PROPERTIES`, else `~/.config/juno-clockin/signing.properties`,
  * with JUNO_STORE_FILE / JUNO_STORE_PASSWORD / JUNO_KEY_ALIAS /
- * JUNO_KEY_PASSWORD. Without that file the build falls back to the debug key
- * and says so, so a fresh clone still builds.
+ * JUNO_KEY_PASSWORD. Release packaging refuses missing or incomplete
+ * credentials; debug development builds remain available.
  */
 const MARKER = "// juno-release-signing";
 
@@ -34,18 +34,24 @@ android {
             if (junoSigning.getProperty("JUNO_STORE_FILE")) {
                 signingConfig signingConfigs.junoRelease
             } else {
-                println("juno: no release keystore found, signing release with the debug key")
+                println("juno: release credentials unavailable; release packaging will be refused")
             }
         }
     }
 }
 `;
 
+const PACKAGER_LIMIT = "\n// clockin-release-packager-single-worker\nreact { extraPackagerArgs = [\"--max-workers\", \"1\"] }\n";
+
+const RELEASE_GUARD = "\n// clockin-release-requires-existing-identity\ngradle.taskGraph.whenReady { graph ->\n    if (graph.allTasks.any { it.name in ['assembleRelease', 'bundleRelease', 'packageRelease'] } && !(junoSigningFile.exists() && ['JUNO_STORE_FILE','JUNO_STORE_PASSWORD','JUNO_KEY_ALIAS','JUNO_KEY_PASSWORD'].every { junoSigning.getProperty(it) } && new File(junoSigning.getProperty('JUNO_STORE_FILE')).exists())) {\n        throw new GradleException('Release signing credentials are missing or incomplete; refusing a debug-signed release')\n    }\n}\n";
+
 module.exports = function withReleaseSigning(config) {
   return withAppBuildGradle(config, (mod) => {
     if (!mod.modResults.contents.includes(MARKER)) {
       mod.modResults.contents += BLOCK;
     }
+    if (!mod.modResults.contents.includes('clockin-release-requires-existing-identity')) mod.modResults.contents += RELEASE_GUARD;
+    if (!mod.modResults.contents.includes('// clockin-release-packager-single-worker')) mod.modResults.contents += PACKAGER_LIMIT;
     return mod;
   });
 };

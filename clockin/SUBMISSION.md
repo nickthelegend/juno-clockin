@@ -39,6 +39,13 @@ apps have no reason to open them tomorrow: you trade once, and leave.
    balance changes, not the memo's claim). It is a closed loop: show up, earn,
    back creators, the treasury refills.
 
+> **Reward status in 1.6.0:** the in-app dSKR reward mint is switched off.
+> Earlier builds signed the daily reward with a devnet mint-authority key
+> baked into the APK; anyone could extract it, so 1.6.0 ships no authority
+> key. Clock-ins still record on-chain and the streak works; the reward needs
+> a server-held treasury (see HANDOFF). Boosts and the boost Blink work for
+> wallets that already hold dSKR.
+
 ## Why Seeker users come back daily
 
 - The streak resets at midnight. The reward grows each consecutive day (10 → 40
@@ -86,6 +93,8 @@ apps have no reason to open them tomorrow: you trade once, and leave.
 | Clock-in, day 1, +10 dSKR (from the app) | [`ofkBaiVz…CUQAhTD`](https://solscan.io/tx/ofkBaiVzCLA48DGs333Y5Ld3ZmtikKvDXroCCx9RwQyFrUQeQtGBDh5xxdU4UvUFK2vwcMnh7aS5HVUdCUQAhTD?cluster=devnet) |
 | Boost, 5 dSKR on "Midnight Avenue" (from the app) | [`3frCMap4…SppMtqLi`](https://solscan.io/tx/3frCMap4HwiLLCZXx4nBLBJ8PodiastiVXLP1urXkiGNxbM5NJRttveq5ThYoMkDiwAM6odRHKfoa4m6SppMtqLi?cluster=devnet) |
 | DBC buy of $AVE, 0.0155 SOL (from the app) | [`59wHu1gq…GVMYqmZo`](https://solscan.io/tx/59wHu1gq2KBQK4ApqEGcasJmaxuu9eHLEamq6LmJjt2o52BXcvPVWTgxhKTiYs1Cq4P3okpdxq2CoNBDGVMYqmZo?cluster=devnet) |
+| Blink buy, 0.01 SOL of $AVE (via juno-actions) | [`mLxa8McK…`](https://solscan.io/tx/mLxa8McKXvqg2fQF6G1WmJP5U13Eobn6ues3MmjyYHN6XjRtSmrmeW6MAvW3dysqHdDUxBonypCkr9tLpurWMpt?cluster=devnet) |
+| Blink boost, 5 dSKR on $AVE (via juno-actions) | [`4RJHosYm…`](https://solscan.io/tx/4RJHosYm7BJ19B3uFvJqukZUy9pz8snBFyW1gZzpZMia4U7Kr1oi2W25GyJasqARctgzRk6r73fuuvYpzMPcQqQB?cluster=devnet) |
 | Earlier proof (launch, graduation to DAMM v2, fee claim) | [JUNO.md → On-chain proof](../JUNO.md#on-chain-proof-devnet) |
 
 ## Install the APK
@@ -110,6 +119,11 @@ sha256: `1a27543bc97e764848cdce0cd0f5010caad252f8695c4f311712ec46b1fc4958`
 - dSKR (SKR devnet stand-in) rewards, boosts with an 80/20 creator/treasury
   split, boost-ranked feed with on-chain verification of amounts
 - Seeker Genesis Token detection (read-only mainnet) with a 2x reward
+- Solana Blinks for every post: buy (0.01 / 0.05 / 0.1 SOL or custom) and
+  boost (5 / 10 / 25 dSKR), served by `juno-actions/` at
+  https://juno-actions.vercel.app with the app's own transaction builders
+- Sign In With Solana through Mobile Wallet Adapter (verified on-device),
+  and read-only `.skr` name lookup for the connected wallet
 - Local streak notifications, haptics on success and failure
 - Instagram-style profile for you and every creator: story ring lit by
   today's clock-in, counts, highlights (streak, dSKR, boosts, Seeker, coins),

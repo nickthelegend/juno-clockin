@@ -12,7 +12,11 @@ import { buildBoostTransaction } from "../../shared/txbuild";
  */
 const AMOUNTS = [5, 10, 25];
 
-export default async function handler(req: Req, res: Res) {
+export function createBoostHandler({ readCoin = getCoin, connect = (rpc: string) => new Connection(rpc, "confirmed") }: {
+  readCoin?: typeof getCoin;
+  connect?: (rpc: string) => Pick<Connection, 'getTokenAccountBalance' | 'getLatestBlockhash'>;
+} = {}) {
+return async function handler(req: Req, res: Res) {
   if (req.method === "OPTIONS") return send(res, 200);
   const mint = q(req, "post") ?? q(req, "mint");
   if (!isMint(mint)) return send(res, 400, { message: "Add ?post=<a Juno post's coin address>" });
@@ -21,7 +25,7 @@ export default async function handler(req: Req, res: Res) {
   if (req.method === "GET") {
     let coin: CoinInfo | null = null;
     try {
-      coin = await getCoin(mint);
+      coin = await readCoin(mint);
     } catch {
       coin = null;
     }
@@ -52,13 +56,17 @@ export default async function handler(req: Req, res: Res) {
     const amount = Number(q(req, "amount"));
     if (!AMOUNTS.includes(amount)) return send(res, 400, { message: `Boost ${AMOUNTS.join(", ")} dSKR` });
 
-    const coin = await getCoin(mint);
-    const connection = new Connection(RPC, "confirmed");
+    const coin = await readCoin(mint);
+    const connection = connect(RPC);
     // A boost from a wallet without enough dSKR would only fail in the wallet; say why here instead.
     const balance = await connection
       .getTokenAccountBalance(associatedTokenAddress(user, SKR_DEVNET_MINT))
       .then((r) => r.value.uiAmount ?? 0)
-      .catch(() => 0);
+      .catch((error: unknown) => {
+        // A missing ATA is an empty balance; a failed RPC read is unknown.
+        if (error instanceof Error && /could not find account|account not found|invalid param.*account/i.test(error.message)) return 0;
+        throw new Error("Could not read this wallet's dSKR balance. Try again shortly.");
+      });
     if (balance < amount) {
       return send(res, 422, { message: `This wallet has ${balance} dSKR. Clock in daily on Juno to earn dSKR, then boost.` });
     }
@@ -73,9 +81,15 @@ export default async function handler(req: Req, res: Res) {
     return send(res, 200, {
       type: "transaction",
       transaction: transaction.serialize({ requireAllSignatures: false, verifySignatures: false }).toString("base64"),
-      message: `Boosting ${coin.name} with ${amount} dSKR (devnet): ${amount * 0.8} to the creator, ${amount * 0.2} to the treasury.`,
+      message: user.equals(new PublicKey(coin.creator.wallet))
+        ? `Boosting your own ${coin.name} with ${amount} dSKR (devnet): the whole amount goes to the reward treasury.`
+        : `Boosting ${coin.name} with ${amount} dSKR (devnet): ${amount * 0.8} to the creator, ${amount * 0.2} to the treasury.`,
     });
   } catch (error) {
     return send(res, 400, { message: error instanceof Error ? error.message : "Could not build the boost" });
   }
 }
+
+}
+
+export default createBoostHandler();

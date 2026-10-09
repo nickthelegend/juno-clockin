@@ -62,21 +62,12 @@ export const SKR_TREASURY_OWNER = new PublicKey(
 );
 
 /**
- * The stand-in mint's authority, which signs each day's reward.
- *
- * Devnet only and worth nothing: it is baked into a build from
- * `EXPO_PUBLIC_SKR_DEVNET_AUTHORITY` (never committed), and a build without it
- * still clocks in on-chain, it just cannot mint the reward. On mainnet the
- * reward would come from a treasury the server holds, never from the phone.
+ * Mobile builds never carry a mint-authority private key. Clock-ins still
+ * record on devnet, but token rewards remain unavailable until a genuine
+ * server-owned reward integration exists. Keep the return shape for callers.
  */
 export function skrAuthority(): Keypair | null {
-  const raw = process.env.EXPO_PUBLIC_SKR_DEVNET_AUTHORITY?.trim();
-  if (!raw) return null;
-  try {
-    return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(raw) as number[]));
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 /* ------------------------------------------------------------------ */

@@ -16,12 +16,22 @@ import * as blinkTx from "../../juno-actions/shared/txbuild";
 const root = join(__dirname, "..", "..");
 
 describe("Blink and app share one transaction builder", () => {
-  it("vendors solana.ts and txbuild.ts byte for byte", () => {
-    for (const file of ["solana.ts", "txbuild.ts"]) {
-      expect(readFileSync(join(root, "juno-actions/shared", file), "utf8")).toBe(
-        readFileSync(join(root, "juno-expo/lib", file), "utf8"),
-      );
-    }
+  it("keeps transaction builders identical while mobile authority stays disabled", () => {
+    const mobile=readFileSync(join(root,"juno-expo/lib/solana.ts"),"utf8");
+    const server=readFileSync(join(root,"juno-actions/shared/solana.ts"),"utf8");
+    // The intentional security boundary differs: only server code may load authority.
+    // Compare every other byte, including mint binding and instruction encoders.
+    const withoutAuthority=(source:string)=>{
+      const declaration=source.indexOf("export function skrAuthority");
+      const start=source.lastIndexOf("/**",declaration);
+      const end=source.indexOf("\n}",declaration)+2;
+      expect(start).toBeGreaterThan(-1);expect(end).toBeGreaterThan(declaration);
+      return source.slice(0,start)+source.slice(end);
+    };
+    expect(withoutAuthority(server)).toBe(withoutAuthority(mobile));
+    expect(mobile).not.toContain("EXPO_PUBLIC_SKR_DEVNET_AUTHORITY");
+    expect(appSolana.skrAuthority()).toBeNull();
+    expect(readFileSync(join(root,"juno-actions/shared/txbuild.ts"),"utf8")).toBe(readFileSync(join(root,"juno-expo/lib/txbuild.ts"),"utf8"));
   });
 
   const user = Keypair.fromSeed(new Uint8Array(32).fill(3)).publicKey;

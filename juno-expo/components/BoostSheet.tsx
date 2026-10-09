@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Share, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
 
 import { BottomSheet } from "./BottomSheet";
+import { ACTIONS_URL, coinBlink } from "../lib/blink";
 import { BOOST_AMOUNTS } from "../lib/clockin";
 import { useClockIn } from "../lib/clockinContext";
 import { explorerTx, SKR_LABEL, SKR_SHORT } from "../lib/solana";
@@ -50,6 +51,7 @@ export function BoostSheet({
   const balance = daily.skr;
   const short = balance !== null && balance < amount;
   const self = target && wallet.address === target.creator;
+  const blink = target ? coinBlink(target.coinMint, ACTIONS_URL, "boost") : null;
   const total = target ? daily.boosts.get(target.coinMint) : undefined;
 
   const send = async () => {
@@ -135,6 +137,14 @@ export function BoostSheet({
           </>
         )}
 
+        {blink ? (
+          <Pressable accessibilityRole="button" accessibilityLabel="Share a boost Blink" onPress={() => {
+            void Share.share({ message: `Boost ${target?.name} on Juno with dSKR (Solana devnet):\n${blink}` })
+              .catch(() => setError("The share sheet could not open. Try again."));
+          }}>
+            <Text style={styles.link}>Share boost Blink</Text>
+          </Pressable>
+        ) : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Text style={styles.fine}>{SKR_LABEL}. On mainnet this would be the real SKR token.</Text>
       </View>
