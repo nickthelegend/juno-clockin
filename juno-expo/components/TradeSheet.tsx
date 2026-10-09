@@ -7,7 +7,7 @@ import { Tappable } from "./Press";
 import { Button, Caption, Col, ExternalGlyph, Label, Row } from "./kit";
 import { juno, type Coin } from "../lib/api";
 import { money, tokens } from "../lib/useApi";
-import { useWallet } from "../lib/wallet";
+import { signAndSubmit, useWallet } from "../lib/wallet";
 import { smallDecimal } from "../lib/format";
 import { TxRow } from "./TxRow";
 import { theme } from "../theme";
@@ -373,12 +373,7 @@ export function TradeSheet({
         quotedAt.current = Date.now();
       }
 
-      const signed = await wallet.sign(live.unsigned.transaction);
-      const { signature: landed } = await juno.submit({
-        transaction: signed,
-        window: live.window,
-        poolAddress: live.pool,
-      });
+      const landed = await signAndSubmit(wallet,{transaction:live.unsigned.transaction,window:live.window},live.pool);
       setSignature(landed);
       setLandedAt(new Date());
       setStage("done");

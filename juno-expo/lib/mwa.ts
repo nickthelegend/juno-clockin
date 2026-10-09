@@ -1,5 +1,7 @@
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
+import { Buffer } from "buffer";
+import { buildSignInInput, createSignInMessageText, utf8, verifiedProof, messageSignature, type SignInInput, type SiwsProof } from "./siws";
 import { PublicKey, Transaction } from "@solana/web3.js";
 
 /**
@@ -40,7 +42,8 @@ type MwaWallet = {
     chain: string;
     identity: typeof APP_IDENTITY;
     auth_token?: string;
-  }) => Promise<{ auth_token: string; accounts: Array<{ address: string; label?: string }> }>;
+    sign_in_payload?: SignInInput;
+  }) => Promise<{ auth_token: string; accounts: Array<{ address: string; label?: string }>; sign_in_result?: { address: string; signed_message: string; signature: string } }>;
   deauthorize: (input: { auth_token: string }) => Promise<void>;
   signTransactions: (input: { transactions: Transaction[] }) => Promise<Transaction[]>;
   signMessages: (input: { addresses: string[]; payloads: Uint8Array[] }) => Promise<Uint8Array[]>;
@@ -87,7 +90,7 @@ async function authorize(wallet: MwaWallet): Promise<{ address: string; base64: 
       auth_token: cached ?? undefined,
     });
   } catch (error) {
-    if (!cached) throw error;
+    if (!cached || /cancel|declin|reject/i.test(error instanceof Error ? error.message : String(error))) throw error;
     await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => undefined);
     result = await wallet.authorize({ chain: CHAIN, identity: APP_IDENTITY });
   }
@@ -99,6 +102,37 @@ async function authorize(wallet: MwaWallet): Promise<{ address: string; base64: 
   return { address, base64: account.address };
 }
 
+/** One authorization sheet with SIWS; older wallets fall back to signMessages. */
+export async function mwaSignIn(): Promise<{ address: string; proof: SiwsProof | null }> {
+  const input = buildSignInInput();
+  return loadTransact()(async (wallet) => {
+    const result = await wallet.authorize({ chain: CHAIN, identity: APP_IDENTITY, sign_in_payload: input });
+    const account = result.accounts[0];
+    if (!account) throw new Error("The wallet did not share an account");
+    const address = toBase58(account.address);
+    let proof: SiwsProof | null = null;
+    if (result.sign_in_result) {
+      const signed = result.sign_in_result;
+      if (toBase58(signed.address) !== address) throw new Error("Sign-in account does not match the connected wallet");
+      proof = verifiedProof(input, { address, signedMessage: Buffer.from(signed.signed_message, "base64"),
+        signature: Buffer.from(signed.signature, "base64") }, "siws", account.label ?? "Solana wallet");
+    } else {
+      const signedMessage = utf8(createSignInMessageText({ ...input, address }));
+      let signed: Uint8Array | undefined;
+      try {
+        [signed] = await wallet.signMessages({ addresses: [account.address], payloads: [signedMessage] });
+      } catch {
+        // Authorization succeeded, but the person may decline the optional proof.
+      }
+      if (signed) proof = verifiedProof(input, { address, signedMessage, signature: messageSignature(address, signedMessage, signed) },
+        "signMessage", account.label ?? "Solana wallet");
+    }
+    await SecureStore.setItemAsync(TOKEN_KEY, result.auth_token);
+    await SecureStore.setItemAsync(ADDRESS_KEY, address);
+    return { address, proof };
+  });
+}
+
 export async function mwaConnect(): Promise<string> {
   const transact = loadTransact();
   return transact(async (wallet) => (await authorize(wallet)).address);
@@ -107,7 +141,8 @@ export async function mwaConnect(): Promise<string> {
 export async function mwaSignTransaction(transaction: Transaction): Promise<Transaction> {
   const transact = loadTransact();
   return transact(async (wallet) => {
-    await authorize(wallet);
+    const account = await authorize(wallet);
+    if (account.address !== transaction.feePayer?.toBase58()) throw new Error("Authorized wallet differs from the transaction owner");
     const [signed] = await wallet.signTransactions({ transactions: [transaction] });
     if (!signed) throw new Error("The wallet returned no signature");
     return signed;
@@ -117,14 +152,13 @@ export async function mwaSignTransaction(transaction: Transaction): Promise<Tran
 export async function mwaSignMessage(text: string): Promise<Uint8Array> {
   const transact = loadTransact();
   return transact(async (wallet) => {
-    const { base64 } = await authorize(wallet);
+    const { address, base64 } = await authorize(wallet);
     const [signed] = await wallet.signMessages({
       addresses: [base64],
       payloads: [new TextEncoder().encode(text)],
     });
     if (!signed) throw new Error("The wallet returned no signature");
-    // Some wallets return signature ‖ message; the signature is the first 64 bytes.
-    return signed.slice(0, 64);
+    return messageSignature(address, utf8(text), signed);
   });
 }
 

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform, Share } from "react-native";
 
 import { API_URL, juno, type Coin } from "./api";
+import { ACTIONS_URL, coinBlink } from "./blink";
 import { coinLink } from "./markets";
 import { useWallet } from "./wallet";
 
@@ -170,7 +171,8 @@ export async function shareCoin(
   coin: Pick<Coin, "address" | "name" | "symbol">,
 ): Promise<"shared" | "copied" | "cancelled" | "failed"> {
   const url = coinLink(appUrl(), coin);
-  const message = `${coin.name} — $${coin.symbol} is live on Juno. Every post is a market.`;
+  const blink = coinBlink(coin.address, ACTIONS_URL);
+  const message = `${coin.name} — $${coin.symbol} is live on Juno. Every post is a market.${blink ? `\nBuy with a Solana Blink (devnet): ${blink}` : ""}`;
   try {
     if (Platform.OS === "web") {
       const nav = globalThis.navigator as Navigator | undefined;
@@ -188,8 +190,8 @@ export async function shareCoin(
       await Clipboard.setStringAsync(url);
       return "copied";
     }
-    await Share.share(Platform.OS === "ios" ? { message, url } : { message: `${message}\n${url}` });
-    return "shared";
+    const result = await Share.share(Platform.OS === "ios" ? { message, url } : { message: `${message}\n${url}` });
+    return result.action === Share.dismissedAction ? "cancelled" : "shared";
   } catch {
     try {
       await Clipboard.setStringAsync(url);

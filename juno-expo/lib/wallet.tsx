@@ -1,17 +1,21 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import * as SecureStore from "expo-secure-store";
-import { Keypair, Transaction } from "@solana/web3.js";
+import { Connection, Keypair, Transaction } from "@solana/web3.js";
 import { Platform } from "react-native";
 import bs58 from "bs58";
 import nacl from "tweetnacl";
 
+import { buildSignInInput, signInLocally, verifiedProof, type SiwsProof } from "./siws";
+import { displayName, resolveSkr } from "./skrName";
 import { juno } from "./api";
+import { devnet } from "./solana";
+import { submitWithReceipt } from "./submission";
 import { PrivyRoot, usePrivyBridge } from "./privy";
 import { SignInSheet } from "../components/SignInSheet";
 import { ConnectSheet, type ConnectChoice } from "../components/ConnectSheet";
 import {
   cachedMwaAddress,
-  mwaConnect,
+  mwaSignIn,
   mwaDisconnect,
   mwaErrorMessage,
   mwaSignMessage,
@@ -61,6 +65,9 @@ export type WalletMode = "mwa" | "privy" | "local";
 export type WalletState = {
   address: string | null;
   mode: WalletMode;
+  siws: SiwsProof | null;
+  skrName: string | null;
+  displayName: string;
   ready: boolean;
   /** True while a signature is being produced. */
   signing: boolean;
@@ -142,6 +149,8 @@ function Wallet({ children }: { children: React.ReactNode }) {
   const privy = usePrivyBridge();
   const [keypair, setKeypair] = useState<Keypair | null>(null);
   const [mwaAddress, setMwaAddress] = useState<string | null>(null);
+  const [siws, setSiws] = useState<SiwsProof | null>(null);
+  const [skrIdentity, setSkrIdentity] = useState<{ address: string; name: string | null } | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [choosing, setChoosing] = useState(false);
   const [chooseError, setChooseError] = useState<string | null>(null);
@@ -169,6 +178,19 @@ function Wallet({ children }: { children: React.ReactNode }) {
   const mode: WalletMode = mwaAddress ? "mwa" : privy.address ? "privy" : "local";
   const ready = loaded && privy.ready;
 
+  // Identity is a read-only mainnet lookup. A slow RPC never delays wallet use.
+  useEffect(() => {
+    if (!address) { setSkrIdentity(null); return; }
+    let active = true;
+    const timer = setTimeout(() => { active = false; }, 6000);
+    resolveSkr(new Connection("https://api.mainnet-beta.solana.com", "confirmed"), address)
+      .then((name) => { if (active) setSkrIdentity({ address, name }); })
+      .catch(() => undefined).finally(() => clearTimeout(timer));
+    return () => { active = false; clearTimeout(timer); };
+  }, [address]);
+  const skrName = skrIdentity?.address === address ? skrIdentity.name : null;
+  const currentProof = siws?.address === address ? siws : null;
+
   // Privy has made the wallet: hand the address to whoever asked for it.
   useEffect(() => {
     if (!privy.address) return;
@@ -193,10 +215,11 @@ function Wallet({ children }: { children: React.ReactNode }) {
       setChooseError(null);
       try {
         if (choice === "mwa") {
-          const connected = await mwaConnect();
-          setMwaAddress(connected);
+          const connected = await mwaSignIn();
+          setSiws(connected.proof);
+          setMwaAddress(connected.address);
           setChoosing(false);
-          pending.current?.resolve(connected);
+          pending.current?.resolve(connected.address);
           pending.current = null;
           return;
         }
@@ -207,6 +230,8 @@ function Wallet({ children }: { children: React.ReactNode }) {
           return;
         }
         const keypairNow = (await loadLocalKeypair()) ?? (await createLocalKeypair());
+        const input = buildSignInInput();
+        setSiws(verifiedProof(input, signInLocally(input, keypairNow.secretKey), "dev-local", "Dev wallet"));
         setKeypair(keypairNow);
         setChoosing(false);
         pending.current?.resolve(keypairNow.publicKey.toBase58());
@@ -231,6 +256,8 @@ function Wallet({ children }: { children: React.ReactNode }) {
   }, []);
 
   const disconnect = useCallback(async () => {
+    setSiws(null);
+    setSkrIdentity(null);
     if (mwaAddress) {
       await mwaDisconnect();
       setMwaAddress(null);
@@ -289,6 +316,9 @@ function Wallet({ children }: { children: React.ReactNode }) {
     () => ({
       address,
       mode,
+      siws: currentProof,
+      skrName,
+      displayName: displayName(address, skrName),
       ready,
       signing,
       sign,
@@ -296,7 +326,7 @@ function Wallet({ children }: { children: React.ReactNode }) {
       connect,
       disconnect,
     }),
-    [address, mode, ready, signing, sign, signMessage, connect, disconnect],
+    [address, mode, currentProof, skrName, ready, signing, sign, signMessage, connect, disconnect],
   );
 
   return (
@@ -332,11 +362,8 @@ export async function signAndSubmit(
   built: { transaction: string; window?: { blockhash: string; lastValidBlockHeight: number } },
   poolAddress?: string,
 ): Promise<string> {
-  const signed = await wallet.sign(built.transaction);
-  const { signature } = await juno.submit({
-    transaction: signed,
-    window: built.window,
-    poolAddress,
+  return submitWithReceipt(wallet,built.transaction,devnet(),async signed => {
+    const {signature}=await juno.submit({transaction:signed,window:built.window,poolAddress});
+    return signature;
   });
-  return signature;
 }

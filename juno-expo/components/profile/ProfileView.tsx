@@ -182,7 +182,7 @@ export function ProfileView({
         (follow.following === true && stats.data.viewerFollows === false ? 1 : 0) -
         (follow.following === false && stats.data.viewerFollows === true ? 1 : 0);
 
-  const displayName = name ?? shortAddress(wallet);
+  const displayName = (self ? me.skrName : null) ?? name ?? shortAddress(wallet);
   const handle = name ? `@${name}` : shortAddress(wallet);
   const bio = useMemo(() => {
     const parts: string[] = [];

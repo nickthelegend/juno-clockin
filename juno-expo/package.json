@@ -4,6 +4,8 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",
+    "@noble/curves": "^1.9.1",
+    "@noble/hashes": "^1.8.0",
     "@privy-io/expo": "^0.74.2",
     "@privy-io/expo-native-extensions": "^0.0.12",
     "@solana-mobile/mobile-wallet-adapter-protocol": "^2.3.0",
@@ -46,6 +48,7 @@
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
+    "@solana/wallet-standard-util": "^1.2.0",
     "@types/react": "~19.2.2",
     "patch-package": "^8.0.1",
     "typescript": "~6.0.3",

@@ -278,3 +278,58 @@ iOS simulator: `npx expo prebuild -p ios`, `cd ios && LANG=en_US.UTF-8 pod insta
    `clockin/PITCH.md` (Google Slides or Drive PDF), and submit on
    https://solanamobile.radiant.nexus before the deadline.
 5. Back up the keystore and passwords.
+
+## Solana tech pack 1.6.0 (Oct 9, branch `solana-tech`, merged)
+
+- **Blinks** (`juno-actions/`, Vercel project `juno-actions`, devnet):
+  - Buy: `https://juno-actions.vercel.app/api/actions/buy?mint=<coin>`
+    (0.01 / 0.05 / 0.1 SOL or custom), built by the Juno API swap builder
+    with the app's own request body.
+  - Boost: `https://juno-actions.vercel.app/api/actions/boost?post=<coin>`
+    (5 / 10 / 25 dSKR), built by the app's `buildBoostTransaction`.
+  - dial.to: `https://dial.to/?action=solana-action:https://juno-actions.vercel.app/api/actions/buy?mint=Ag79NjwC4wEM5hoxW8AasAjjwiphRyZqP7BQyqd8tiD3&cluster=devnet`
+  - curl: GET, OPTIONS and POST return the Actions headers
+    (`X-Action-Version: 2.4`, `X-Blockchain-Ids: solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1`, CORS).
+  - Real devnet sends of Blink-built transactions, signed by a local devnet
+    key: buy `mLxa8McKXvqg2fQF6G1WmJP5U13Eobn6ues3MmjyYHN6XjRtSmrmeW6MAvW3dysqHdDUxBonypCkr9tLpurWMpt`,
+    boost `4RJHosYm7BJ19B3uFvJqukZUy9pz8snBFyW1gZzpZMia4U7Kr1oi2W25GyJasqARctgzRk6r73fuuvYpzMPcQqQB`.
+  - The app offers "Share as Blink" for buy (post share) and boost (boost sheet).
+- **SIWS** via MWA `authorize({ sign_in_payload })`, verified on-device
+  (ported from Mempire, domain juno-app-chi.vercel.app, solana:devnet), with a
+  signMessage fallback; the dev wallet signs and verifies locally.
+- **.skr** read-only mainnet lookup for the connected wallet (profile, wallet card).
+- **dSKR rewards switched off in the app:** the devnet mint-authority key is
+  no longer baked into the APK (it was extractable). Clock-ins still record
+  on-chain (verified today: `3k3MWNtUPcVvFVqmMHH68sicBu5ntnF1HdEyWttbT3pSCFLZYTt3kXrTUea1UtB6Puf21rWAoDyA3yS4iEhUQfap`, streak day 1, no mint).
+  Restoring rewards needs a small server endpoint that holds the authority
+  and mints after verifying the clock-in memo.
+- Not verified: real Android MWA/SIWS and a positive `.skr` name (no Seeker
+  or wallet app available); .skr is shown only for the connected wallet.
+- Tests: 88 (formatter, streak, ticker, Blink parity and routes, SIWS, .skr fixtures).
+
+## Codex continuation — Oct 8 (source changes, unreleased)
+
+Completed the interrupted SIWS/.skr app integration. MWA authorization requests a fresh SIWS proof; a wallet without that response uses a verified message-signature fallback, and declining that optional message leaves a connected wallet with no proof. Invalid returned proofs are refused. Local dev-wallet login signs and verifies locally. The wallet context exposes the session proof and a bounded, read-only mainnet .skr lookup; profile and wallet card show the resolved name and proof status. Cached/restored authorization is never labelled as a fresh SIWS proof.
+
+SIWS requires the requested chain, and signed-message handling verifies both signature-before-message and message-before-signature layouts. Fixed copied test fixtures that still named Mempire. Mobile post sharing adds a devnet Buy Blink when `EXPO_PUBLIC_ACTIONS_URL` is explicitly set to the deployed HTTPS Actions host; ordinary post sharing works without that configuration. Native share cancellation is reported correctly. Existing Actions routes remain unchanged.
+
+Validation: mobile 51/51 tests, mobile and Actions TypeScript checks pass. No new Android/iOS binary or deployment was made. Real Android MWA/SIWS and a positive .skr lookup in the app remain device-verification tasks. The installed APK predates these source changes.
+
+## Codex development phase 2 — Oct 8
+
+Added Share boost Blink to the boost sheet. Existing Juno Actions host `https://juno-actions.vercel.app` was checked with a read-only GET: it returned the devnet Boost Action for Midnight Avenue. Mobile Buy/Boost sharing now uses this existing host by default; `EXPO_PUBLIC_ACTIONS_URL` overrides it, and an empty string disables it. No Action POST or deployment was performed.
+
+Actual boost/buy HTTP handlers are now exercised offline, including headers, validation, transaction parity, a graduated curve, and network failures. Unknown RPC token-balance reads no longer claim the wallet owns zero dSKR. Self-boost confirmation correctly states the whole amount goes to the treasury. Buy requests enforce their published 0.001 minimum.
+
+Checks: 62 mobile tests; mobile/Actions TypeScript; Android Hermes JS production export. This is JS packaging verification, not a newly signed APK or Android wallet/device run.
+
+
+## 2026-10-09 signed Android release 1.5.1
+
+Signed current local source with the existing release identity. VersionCode 127; package `package: name='app.launch.juno' versionCode='127' versionName='1.5.1' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'`; ABIs arm64-v8a and x86_64. Signature verified and certificate matches the prior release; APK is non-debuggable.
+
+- Artifact: `/Volumes/Extreme SSD/Projects/clockin/apks/releases/2026-10-09/juno-clockin-1.5.1.apk` (74,359,706 bytes).
+- SHA-256: `019025a0e6094381ea80f2a774d028ccdd346984b38ca486eadf5f94567c2ec3`.
+- Certificate SHA-256: `984c2ec7360356fd7d90e18e860794e98e04fb1827cfd556c42a3e52c813a3f6`.
+
+This is packaging verification, not product acceptance. No APK installation, device/MWA/SIWS verification, FPS measurement, store submission, public chain signing or source push occurred. Product acceptance remains NOT_RUN until the portfolio plan is frozen.

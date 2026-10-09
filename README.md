@@ -31,6 +31,16 @@ APK. See [clockin/SUBMISSION.md](clockin/SUBMISSION.md) and [HANDOFF.md](HANDOFF
 | **Web build** | https://juno-app-chi.vercel.app (the STOCKLANA web build; it predates the CLOCK IN features) |
 | **Deep dive** | [JUNO.md](JUNO.md) — on-chain proof, the DBC findings, what is and is not built |
 
+## Blinks
+
+Every post is also a Solana Action (devnet), served from `juno-actions/` on Vercel:
+
+- Buy a post: `https://juno-actions.vercel.app/api/actions/buy?mint=<coin>` (0.01 / 0.05 / 0.1 SOL or custom)
+- Boost a post: `https://juno-actions.vercel.app/api/actions/boost?post=<coin>` (5 / 10 / 25 dSKR)
+- Try it: [dial.to](https://dial.to/?action=solana-action:https://juno-actions.vercel.app/api/actions/buy?mint=Ag79NjwC4wEM5hoxW8AasAjjwiphRyZqP7BQyqd8tiD3&cluster=devnet)
+
+The Blinks build the same transactions as the app (`juno-expo/lib/txbuild.ts`, vendored and checked by a test).
+
 ## Install it
 
 - **Android (Seeker or any phone/emulator):** `adb install -r juno-clockin.apk`,

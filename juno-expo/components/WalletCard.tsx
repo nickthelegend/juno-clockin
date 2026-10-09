@@ -22,6 +22,7 @@ import { theme } from "../theme";
  * wallet that is already funded.
  */
 export function WalletCard({ address }: { address: string }) {
+  const wallet = useWallet();
   const sol = useApi(() => juno.balance(address, WSOL_MINT), [address]);
   const usdc = useApi(() => juno.balance(address, USDC_DEVNET), [address]);
   const [copied, setCopied] = useState(false);
@@ -61,6 +62,8 @@ export function WalletCard({ address }: { address: string }) {
   return (
     <View style={styles.card}>
       <NameEditor address={address} />
+      {wallet.address === address && wallet.skrName ? <Text style={styles.name}>{wallet.skrName}</Text> : null}
+      {wallet.address === address ? <Text style={styles.label}>{wallet.siws ? `SIWS verified · ${wallet.siws.signer}` : "No sign-in proof in this session"}</Text> : null}
       <View style={styles.head}>
         <Text style={styles.label}>Wallet · devnet</Text>
         <Tappable onPress={() => void copy()} to={0.95} accessibilityRole="button" accessibilityLabel="Copy address">

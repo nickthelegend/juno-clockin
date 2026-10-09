@@ -1,3 +1,6 @@
+import bs58 from "bs58";
+import { createDailyReceipt } from "./dailyReceipt";
+import { submitWithReceipt } from "./submission";
 import { Connection, PublicKey, Transaction } from "@solana/web3.js";
 
 import {
@@ -11,8 +14,8 @@ import {
   SKR_DEVNET_MINT,
   SKR_TREASURY_OWNER,
   toBaseUnits,
-  transferChecked,
 } from "./solana";
+import { BOOST_CREATOR_PCT, BOOST_PREFIX, buildBoostTransaction, treasuryAccount } from "./txbuild";
 import type { WalletState } from "./wallet";
 
 /**
@@ -32,7 +35,6 @@ import type { WalletState } from "./wallet";
  */
 
 const CLOCKIN_PREFIX = "juno:clockin:v1:";
-const BOOST_PREFIX = "juno:boost:v1:";
 
 /** The calendar day on this phone, as YYYY-MM-DD. Streaks follow the person's own midnight. */
 export function dayKey(date = new Date()): string {
@@ -141,22 +143,19 @@ async function signAndSend(
   transaction: Transaction,
   window: Window,
   connection: Connection,
+  callbacks: {onSignature?:(signature:string)=>Promise<void>;onIntent?:()=>Promise<void>;onNoBroadcast?:()=>Promise<void>} = {},
 ): Promise<string> {
   const unsigned = transaction
     .serialize({ requireAllSignatures: false, verifySignatures: false })
     .toString("base64");
-  const signed = await wallet.sign(unsigned);
-  try {
-    const signature = await connection.sendRawTransaction(Buffer.from(signed, "base64"), {
-      skipPreflight: false,
-      maxRetries: 3,
-    });
+  return submitWithReceipt(wallet,unsigned,connection,async signed => {
+    const signature = await connection.sendRawTransaction(Buffer.from(signed, "base64"), { skipPreflight: false, maxRetries: 3 });
+    const original = bs58.encode(Transaction.from(Buffer.from(signed,"base64")).signature!);
+    if(signature!==original)throw new Error(`Returned transaction hash differs from original (${original}). Retry is blocked.`);
     const result = await connection.confirmTransaction({ signature, ...window }, "confirmed");
     if (result.value.err) throw new Error(`Transaction failed: ${JSON.stringify(result.value.err)}`);
     return signature;
-  } catch (error) {
-    throw new Error(friendlyTxError(error));
-  }
+  },callbacks);
 }
 
 export type ClockInResult = { signature: string; reward: number; streak: number; rewarded: boolean };
@@ -170,14 +169,21 @@ export async function clockIn(
   if (!wallet.address) throw new Error("Connect a wallet first");
   if (state.clockedToday) throw new Error("Already clocked in today");
 
+  const SecureStore=await import("expo-secure-store");
+  const clockDay=dayKey();
+  const dailyKey=`juno.daily.receipt.v1.${wallet.address}.${clockDay}`;
+  const daily=createDailyReceipt({get:()=>SecureStore.getItemAsync(dailyKey),set:value=>SecureStore.setItemAsync(dailyKey,value),clear:()=>SecureStore.deleteItemAsync(dailyKey)},connection.rpcEndpoint,wallet.address,clockDay);
+  await daily.check(async signature=>{const {value}=await connection.getSignatureStatuses([signature],{searchTransactionHistory:true});return value[0]??null;});
+  const fresh=await readClockIns(wallet.address,connection);
+  if(fresh.clockedToday)throw new Error("Already clocked in today");
   const user = new PublicKey(wallet.address);
-  const streak = state.streak + 1;
+  const streak = fresh.streak + 1;
   const reward = rewardFor(streak, options.seeker);
   const authority = skrAuthority();
 
   const window = await connection.getLatestBlockhash("confirmed");
   const transaction = new Transaction({ feePayer: user, ...window });
-  transaction.add(memo(`${CLOCKIN_PREFIX}${dayKey()}:s${streak}${options.seeker ? ":sgt" : ""}`, user));
+  transaction.add(memo(`${CLOCKIN_PREFIX}${clockDay}:s${streak}${options.seeker ? ":sgt" : ""}`, user));
   if (authority) {
     transaction.add(
       createAtaIdempotent(user, user, SKR_DEVNET_MINT),
@@ -193,7 +199,7 @@ export async function clockIn(
     transaction.partialSign(authority);
   }
 
-  const signature = await signAndSend(wallet, transaction, window, connection);
+  const signature = await signAndSend(wallet, transaction, window, connection,{onIntent:()=>daily.prepare(),onSignature:signature=>daily.save(signature),onNoBroadcast:()=>daily.abort()});
   return { signature, reward: authority ? reward : 0, streak, rewarded: Boolean(authority) };
 }
 
@@ -201,13 +207,8 @@ export async function clockIn(
 /* Boosts                                                              */
 /* ------------------------------------------------------------------ */
 
-/** Share of a boost paid to the post's creator; the rest refills the reward treasury. */
-export const BOOST_CREATOR_PCT = 80n;
+export { BOOST_CREATOR_PCT, treasuryAccount } from "./txbuild";
 export const BOOST_AMOUNTS = [5, 25, 100] as const;
-
-export function treasuryAccount(): PublicKey {
-  return associatedTokenAddress(SKR_TREASURY_OWNER, SKR_DEVNET_MINT);
-}
 
 export async function boost(
   wallet: WalletState,
@@ -215,33 +216,14 @@ export async function boost(
   connection: Connection = devnet(),
 ): Promise<string> {
   if (!wallet.address) throw new Error("Connect a wallet first");
-  const user = new PublicKey(wallet.address);
-  const creator = new PublicKey(input.creator);
-  const source = associatedTokenAddress(user, SKR_DEVNET_MINT);
-  const total = toBaseUnits(input.amount);
-  const toCreator = (total * BOOST_CREATOR_PCT) / 100n;
-  const toTreasury = total - toCreator;
-
   const window = await connection.getLatestBlockhash("confirmed");
-  const transaction = new Transaction({ feePayer: user, ...window });
-  transaction.add(memo(`${BOOST_PREFIX}${input.coinMint}:${input.amount}`, user));
-  if (!creator.equals(user)) {
-    transaction.add(
-      createAtaIdempotent(user, creator, SKR_DEVNET_MINT),
-      transferChecked(
-        source,
-        SKR_DEVNET_MINT,
-        associatedTokenAddress(creator, SKR_DEVNET_MINT),
-        user,
-        toCreator,
-        SKR_DECIMALS,
-      ),
-      transferChecked(source, SKR_DEVNET_MINT, treasuryAccount(), user, toTreasury, SKR_DECIMALS),
-    );
-  } else {
-    // Boosting your own post sends all of it to the treasury: you cannot pay yourself.
-    transaction.add(transferChecked(source, SKR_DEVNET_MINT, treasuryAccount(), user, total, SKR_DECIMALS));
-  }
+  const transaction = buildBoostTransaction({
+    user: new PublicKey(wallet.address),
+    creator: new PublicKey(input.creator),
+    coinMint: input.coinMint,
+    amount: input.amount,
+    ...window,
+  });
   return signAndSend(wallet, transaction, window, connection);
 }
 

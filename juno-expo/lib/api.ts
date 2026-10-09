@@ -1,6 +1,8 @@
 import Constants from "expo-constants";
 import { File as DeviceFile } from "expo-file-system";
 
+import { swapRequestBody } from "./txbuild";
+
 /**
  * The Juno API client.
  *
@@ -854,7 +856,7 @@ export const juno = {
     },
     /** Shorter than the default when the caller has a usable quote to fall back on. */
     timeoutMs?: number,
-  ) => api.post<SwapBuild>("/api/juno/tx/swap", input, timeoutMs),
+  ) => api.post<SwapBuild>("/api/juno/tx/swap", swapRequestBody(input), timeoutMs),
 
   buildLaunch: (input: {
     creator: string;

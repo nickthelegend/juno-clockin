@@ -89,7 +89,7 @@ export function ClockInCard({ compact = false }: { compact?: boolean }) {
           </Text>
           <Text style={styles.sub}>
             {!wallet.address
-              ? `Clock in once a day to earn ${SKR_SHORT}. Your streak lives on Solana.`
+              ? (daily.rewardsEnabled ? `Clock in once a day to earn ${SKR_SHORT}. Your streak lives on Solana.` : "Record your daily streak on devnet. SKR rewards are unavailable in this build.")
               : data
                 ? `Best ${data.best} · ${data.total} ${data.total === 1 ? "day" : "days"} on-chain`
                 : daily.state.error
@@ -152,7 +152,7 @@ export function ClockInCard({ compact = false }: { compact?: boolean }) {
         <Text style={styles.fine}>
           {daily.rewardsEnabled
             ? `Rewards are ${SKR_LABEL}: 10 on day one, +5 a day to 40. Seeker owners earn double. Spend them boosting posts.`
-            : "This build records clock-ins on-chain but has no devnet reward key, so it mints no SKR."}
+            : "SKR rewards are unavailable in this build. Clock-ins still record on devnet."}
         </Text>
       ) : null}
     </View>

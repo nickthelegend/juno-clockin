@@ -45,7 +45,7 @@ import { juno, WSOL_MINT, type NavReference, type Plan } from "../../lib/api";
 import { money, since, tokens, useApi } from "../../lib/useApi";
 import { bigMoney } from "../../lib/markets";
 import { shareCoin } from "../../lib/social";
-import { useWallet } from "../../lib/wallet";
+import { signAndSubmit, useWallet } from "../../lib/wallet";
 import { theme } from "../../theme";
 
 /**
@@ -828,17 +828,14 @@ function ClaimFees({
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<{ signature: string; at: Date; amount: string } | null>(null);
 
+  const wallet=useWallet();
   async function claim() {
     setState("busy");
     setError(null);
     try {
       const built = await juno.buildClaim({ mint, owner });
-      const signed = await sign(built.unsigned.transaction);
-      const { signature } = await juno.submit({
-        transaction: signed,
-        window: built.window,
-        poolAddress: built.pool,
-      });
+      if(wallet.address!==owner)throw new Error("Connected wallet changed. Reopen this claim.");
+      const signature = await signAndSubmit(wallet,{transaction:built.unsigned.transaction,window:built.window},built.pool);
       setReceipt({
         signature,
         at: new Date(),
