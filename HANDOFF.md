@@ -73,6 +73,7 @@ is a plain `adb`/`uiautomator` tap-by-text loop.
 
 ## Current APK
 
+1.6.1 (versionCode 130), sha256 `bacd5c710fbf56af9702395e31731afd4e4e1c68aab0cf25a2623685b5d66b7e` (Oct 12 polish round, see the end of this file). Before that:
 1.6.0 (versionCode 129), sha256 `f0351f6c41ec70dc5a8d3ead4769b8ffbfb593c89bddb0ca36b48da6d32b726e`, signed with the same keystore (cert `984c2ec7…a3f6`), uploaded to release `clockin-v1` with `--clobber`; the download re-hashes to the same value. The audit below was done on 1.2.1; 1.3.0–1.5.0 add JS only, plus the CAMERA permission back in 1.5.0 for the composer (profile, boost labels, bottom-sheet fix, polish, post composer) and keeps the same manifest (0 hits for the removed permissions, 0 for `localhost:3000`).
 
 ## Post composer 1.5.0 (Oct 7, branch `post-composer`, merged)
@@ -333,3 +334,29 @@ Signed current local source with the existing release identity. VersionCode 127;
 - Certificate SHA-256: `984c2ec7360356fd7d90e18e860794e98e04fb1827cfd556c42a3e52c813a3f6`.
 
 This is packaging verification, not product acceptance. No APK installation, device/MWA/SIWS verification, FPS measurement, store submission, public chain signing or source push occurred. Product acceptance remains NOT_RUN until the portfolio plan is frozen.
+
+## 2026-10-12 polish round, 1.6.1 (130)
+
+Walked every main screen on the iPhone 17 Pro simulator from a **Release** build (`xcodebuild -configuration Release`,
+embedded JS bundle, deployed Railway API, dev wallet `9DCuan19…h7kzo`).
+
+- **Trade redesigned** as a trading feed (`components/trade/`): big header with search and sort, 40px pill tabs, a
+  one-time dismissible banner per tab, a Trending carousel, coin cards with the post thumbnail (or a gradient tile with
+  the ticker initials), creator handle (name or a stable alias, never base58), market cap with a 24h change chip, a
+  sparkline drawn by time from the coin's real fills (3+ fills; otherwise "New" and a dashed line), curve progress in
+  words, and a Buy pill that opens the existing quick-trade sheet. Pre-IPO, Stocks and Traders use the same cards.
+  Skeletons, pull to refresh, and empty or error states with art and a CTA. Each card reads `/api/juno/coins/<mint>`
+  for its history, two at a time, cached, with one retry.
+- Clock-in copy no longer says "devnet" or promises a reward this build cannot mint (the dSKR authority was removed in
+  1.6.0); the clocked-in button says "see you tomorrow".
+- Curve-preset slugs (`thin-name`, `content`) are gone from the feed, Reels and the coin page; people without a name
+  show an alias instead of `9DCu…7kzo`; seeded `demo_` prefixes are hidden; the wallet sheet drops the SIWS debug line.
+
+Devnet, exercised in the Release build on the simulator:
+- Clock-in (memo, day streak 1): `JCfFbXt9ntXTPBQx1VhbNZGUNUSorr2BWduatoAV23G7RUHtweieNhWV5AfJZ5pLrg45wbj77sSHL2uRvrzG8Kq`
+- Buy of $AVE for 0.0155 SOL from the Reels dock, "Done, confirmed on Solana":
+  `3Ch3AgaQrf7hjZo8Mz5Czgcih3xQixBffqXHjbAsJvawAeUaGxjLyhbFY4eED5F766CGd6gUiWnXaacXTyw5BVee`
+
+Screenshots: `clockin/screens/polish-*.png`. Checks: `tsc --noEmit`, `vitest` 88/88. APK built with Gradle under the
+shared lock, same keystore (cert `984c2ec7…a3f6`), `aapt2`: `app.launch.juno` 1.6.1 (130), arm64-v8a + x86_64;
+uploaded to `clockin-v1` with `--clobber`, the download re-hashes to `bacd5c71…6b7e`. Not run on an Android device.

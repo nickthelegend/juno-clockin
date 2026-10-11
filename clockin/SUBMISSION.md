@@ -107,8 +107,8 @@ apps have no reason to open them tomorrow: you trade once, and leave.
    wallet** (Seed Vault / Phantom / Solflare). A new wallet is funded with
    devnet SOL from Juno's faucet automatically on its first clock-in.
 
-APK: package `app.launch.juno`, version 1.6.0 (versionCode 129).
-sha256: `f0351f6c41ec70dc5a8d3ead4769b8ffbfb593c89bddb0ca36b48da6d32b726e`
+APK: package `app.launch.juno`, version 1.6.1 (versionCode 130).
+sha256: `bacd5c710fbf56af9702395e31731afd4e4e1c68aab0cf25a2623685b5d66b7e`
 
 ## What is new for CLOCK IN (significant new mobile development)
 
