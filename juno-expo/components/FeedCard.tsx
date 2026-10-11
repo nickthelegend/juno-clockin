@@ -123,7 +123,7 @@ export function FeedCard({
               {handle}
             </Text>
             <Text style={styles.meta} numberOfLines={1}>
-              {since(coin.createdAt)} · {coin.curvePreset} curve
+              {since(coin.createdAt)} · {money(coin.marketCap, coin.marketCapCurrency)} mkt cap
             </Text>
           </View>
         </Pressable>

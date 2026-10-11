@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, Text, TextInput, View, type LayoutChangeEvent }
 import Svg, { Circle, Defs, LinearGradient, Line, Path, Rect, Stop, Text as SvgText } from "react-native-svg";
 
 import { juno, type Coin } from "../../lib/api";
-import { useName } from "../../lib/names";
+import { aliasFor, useName } from "../../lib/names";
 import { theme } from "../../theme";
 import { Identicon } from "../art";
 import { HeartGlyph, ReplyBubble } from "../icons";
@@ -23,6 +23,7 @@ const c = theme.colors;
  */
 export type CoinDetail = {
   points: number[];
+  times: number[];
   change: number | null;
 };
 
@@ -50,8 +51,14 @@ function limited<T>(task: () => Promise<T>): Promise<T> {
 function loadDetail(address: string): Promise<CoinDetail> {
   let pending = details.get(address);
   if (!pending) {
-    pending = limited(() => juno.coin(address)).then(({ coin }) => ({
-      points: (coin.priceHistory ?? []).map((p) => p.price).filter((p) => Number.isFinite(p) && p > 0),
+    const once = () => limited(() => juno.coin(address));
+    // One quiet retry: the server's chain reads are rate-limited at busy moments.
+    const read = once().catch(() => new Promise((r) => setTimeout(r, 3000)).then(once));
+    pending = read.then(({ coin }) => ({
+      ...(() => {
+        const rows = (coin.priceHistory ?? []).filter((p) => Number.isFinite(p.price) && p.price > 0);
+        return { points: rows.map((p) => p.price), times: rows.map((p) => Date.parse(p.t)) };
+      })(),
       change: coin.marketCapChangePct ?? null,
     }));
     pending.then(
@@ -93,9 +100,6 @@ export function useCoinDetail(address: string): { data: CoinDetail | null; error
 /* Names                                                               */
 /* ------------------------------------------------------------------ */
 
-const ADJ = ["lime", "quiet", "brave", "sunny", "swift", "lucky", "bold", "calm", "neon", "wild", "mellow", "keen"];
-const NOUN = ["otter", "falcon", "panda", "comet", "maple", "tiger", "koala", "heron", "lynx", "orca", "fox", "wren"];
-
 function hash(seed: string): number {
   let h = 2166136261;
   for (let i = 0; i < seed.length; i += 1) {
@@ -109,8 +113,7 @@ function hash(seed: string): number {
 export function useCreatorHandle(wallet: string): string {
   const name = useName(wallet);
   if (name) return name.includes(".") || name.startsWith("@") ? name : `@${name}`;
-  const n = hash(wallet);
-  return `@${ADJ[n % ADJ.length]}${NOUN[(n >>> 8) % NOUN.length]}`;
+  return `@${aliasFor(wallet)}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -153,15 +156,16 @@ export function GradientTile({ seed, symbol, w, h, radius }: { seed: string; sym
   );
 }
 
-export function CoinThumb({ coin, size = 56, radius = 16 }: { coin: Coin; size?: number; radius?: number }) {
+export function CoinThumb({ coin, size = 56, height, radius = 16 }: { coin: Coin; size?: number; height?: number; radius?: number }) {
   const uri = juno.still(coin.media);
   const [failed, setFailed] = useState(false);
-  if (!uri || failed) return <GradientTile seed={coin.address} symbol={coin.symbol} w={size} h={size} radius={radius} />;
+  const h = height ?? size;
+  if (!uri || failed) return <GradientTile seed={coin.address} symbol={coin.symbol} w={size} h={h} radius={radius} />;
   return (
     <ExpoImage
       source={{ uri }}
       onError={() => setFailed(true)}
-      style={{ width: size, height: size, borderRadius: radius, backgroundColor: c.surfaceAlt }}
+      style={{ width: size, height: h, borderRadius: radius, backgroundColor: c.surfaceAlt }}
       contentFit="cover"
       transition={150}
     />
@@ -177,24 +181,32 @@ export function Sparkline({ address, height = 34 }: { address: string; height?: 
   const [width, setWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => setWidth(Math.round(e.nativeEvent.layout.width));
   const points = data?.points ?? [];
-  const up = points.length < 2 || points[points.length - 1]! >= points[0]!;
+  const up = points.length < 3 || points[points.length - 1]! >= points[0]!;
   const stroke = up ? c.pos : c.neg;
 
   const path = useMemo(() => {
-    if (points.length < 2 || width === 0) return null;
+    if (points.length < 3 || width === 0) return null;
     const min = Math.min(...points);
     const max = Math.max(...points);
     const span = max - min || max * 0.02 || 1;
     const pad = 3;
+    // x by time, not by index, and held flat between fills: a curve only moves when someone trades.
+    const times = data?.times ?? [];
+    const t0 = times[0] ?? 0;
+    const t1 = Math.max(Date.now(), times[times.length - 1] ?? 0);
+    const byTime = times.length === points.length && t1 > t0;
     const xy = points.map((p, i) => [
-      (i / (points.length - 1)) * width,
+      byTime ? ((times[i]! - t0) / (t1 - t0)) * width : (i / (points.length - 1)) * width,
       pad + (1 - (p - min) / span) * (height - pad * 2),
     ]);
-    const line = xy.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x!.toFixed(1)},${y!.toFixed(1)}`).join(" ");
+    if (byTime) xy.push([width, xy[xy.length - 1]![1]!]);
+    const line = xy
+      .map(([x, y], i) => (i === 0 ? `M${x!.toFixed(1)},${y!.toFixed(1)}` : `H${x!.toFixed(1)} V${y!.toFixed(1)}`))
+      .join(" ");
     return { line, area: `${line} L${width},${height} L0,${height} Z` };
-  }, [points, width, height]);
+  }, [points, data, width, height]);
 
-  const note = !data && !error ? null : error ? "Chart unavailable" : points.length === 0 ? "No trades yet" : points.length === 1 ? "First trade in" : null;
+  const note = !data && !error ? null : error ? "Chart is catching up" : points.length === 0 ? "No trades yet" : points.length < 3 ? "Just a few trades so far" : null;
   const id = `sp${hash(address).toString(36)}`;
 
   return (
@@ -236,9 +248,10 @@ export function Sparkline({ address, height = 34 }: { address: string; height?: 
 }
 
 export function ChangeChip({ address }: { address: string }) {
-  const { data } = useCoinDetail(address);
+  const { data, error } = useCoinDetail(address);
+  if (error) return null;
   if (!data) return <View style={[styles.chip, { backgroundColor: c.surfaceAlt, width: 52 }]} />;
-  if (data.points.length === 0) {
+  if (data.points.length < 3) {
     return (
       <View style={[styles.chip, { backgroundColor: c.limeSoft }]}>
         <Text style={[styles.chipText, { color: c.onLime }]}>New</Text>

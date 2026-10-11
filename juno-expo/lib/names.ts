@@ -57,6 +57,25 @@ export function shortAddress(wallet: string): string {
   return `${wallet.slice(0, 4)}…${wallet.slice(-4)}`;
 }
 
+const ADJ = ["lime", "quiet", "brave", "sunny", "swift", "lucky", "bold", "calm", "neon", "wild", "mellow", "keen"];
+const NOUN = ["otter", "falcon", "panda", "comet", "maple", "tiger", "koala", "heron", "lynx", "orca", "fox", "wren"];
+
+/** A stable, readable alias for a wallet with no name, so the UI never prints base58 as a person. */
+export function aliasFor(wallet: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < wallet.length; i += 1) {
+    h ^= wallet.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const n = h >>> 0;
+  return `${ADJ[n % ADJ.length]}${NOUN[(n >>> 8) % NOUN.length]}`;
+}
+
+/** Seeded demo accounts carry a `demo_` prefix in the registry; people never see it. */
+export function cleanName(name: string | null): string | null {
+  return name ? name.replace(/^demo[_-]/i, "") : name;
+}
+
 /** This wallet's name, or null while unknown or when it has none. */
 export function useName(wallet: string | null | undefined): string | null {
   const [name, setName] = useState<string | null>(wallet ? (known.get(wallet) ?? null) : null);
@@ -76,12 +95,12 @@ export function useName(wallet: string | null | undefined): string | null {
     };
   }, [wallet]);
 
-  return name;
+  return cleanName(name);
 }
 
-/** What to print for a person: their name, or their short address. */
+/** What to print for a person: their name, or a stable alias (never the address). */
 export function useHandle(wallet: string | null | undefined): string {
   const name = useName(wallet);
   if (!wallet) return "";
-  return name ?? shortAddress(wallet);
+  return name ?? aliasFor(wallet);
 }

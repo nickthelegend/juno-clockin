@@ -63,7 +63,7 @@ export function WalletCard({ address }: { address: string }) {
     <View style={styles.card}>
       <NameEditor address={address} />
       {wallet.address === address && wallet.skrName ? <Text style={styles.name}>{wallet.skrName}</Text> : null}
-      {wallet.address === address ? <Text style={styles.label}>{wallet.siws ? `SIWS verified · ${wallet.siws.signer}` : "No sign-in proof in this session"}</Text> : null}
+      {wallet.address === address && wallet.siws ? <Text style={styles.label}>Signed in with Solana ✓</Text> : null}
       <View style={styles.head}>
         <Text style={styles.label}>Wallet · devnet</Text>
         <Tappable onPress={() => void copy()} to={0.95} accessibilityRole="button" accessibilityLabel="Copy address">

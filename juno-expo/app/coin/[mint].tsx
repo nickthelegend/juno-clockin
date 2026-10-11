@@ -46,6 +46,7 @@ import { money, since, tokens, useApi } from "../../lib/useApi";
 import { bigMoney } from "../../lib/markets";
 import { shareCoin } from "../../lib/social";
 import { signAndSubmit, useWallet } from "../../lib/wallet";
+import { CURVE_PRESETS } from "../../components/composer/CurveCard";
 import { theme } from "../../theme";
 
 /**
@@ -778,7 +779,7 @@ function DetailsTab({
         <DetailRow label="Ticker" value={coin.symbol} shaded={false} copied={copied === "ticker"} onCopy={() => void copy("ticker", coin.symbol)} />
         <DetailRow label="Network" value={`Solana · ${cluster}`} shaded />
         <DetailRow label="Quote" value={coin.quote.symbol} shaded={false} />
-        <DetailRow label="Curve" value={coin.curvePreset} shaded />
+        <DetailRow label="Curve" value={CURVE_PRESETS.find((p) => p.id === coin.curvePreset)?.label ?? coin.curvePreset} shaded />
         <DetailRow label="Format" value={coin.format === "reel" ? "Reel" : "Post"} shaded={false} />
         <DetailRow
           label="Pool"

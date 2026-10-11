@@ -42,7 +42,7 @@ import { juno, type Coin, type Position } from "../../lib/api";
 import { findSeekerGenesisToken, readWalletActivity, type BoostGiven } from "../../lib/clockin";
 import { useClockIn } from "../../lib/clockinContext";
 import { count, loadMarkets } from "../../lib/markets";
-import { shortAddress, useName } from "../../lib/names";
+import { aliasFor, shortAddress, useName } from "../../lib/names";
 import { appUrl, useFollow } from "../../lib/social";
 import { explorerTx, SKR_DEVNET_MINT, SKR_LABEL, SKR_SHORT, tokenBalance } from "../../lib/solana";
 import { money, tokens, useApi } from "../../lib/useApi";
@@ -182,8 +182,8 @@ export function ProfileView({
         (follow.following === true && stats.data.viewerFollows === false ? 1 : 0) -
         (follow.following === false && stats.data.viewerFollows === true ? 1 : 0);
 
-  const displayName = (self ? me.skrName : null) ?? name ?? shortAddress(wallet);
-  const handle = name ? `@${name}` : shortAddress(wallet);
+  const displayName = (self ? me.skrName : null) ?? name ?? aliasFor(wallet);
+  const handle = `@${name ?? aliasFor(wallet)}`;
   const bio = useMemo(() => {
     const parts: string[] = [];
     if (posts.length > 0) parts.push(`Creator of ${posts.length} ${posts.length === 1 ? "market" : "markets"}`);
@@ -293,7 +293,7 @@ export function ProfileView({
               accessibilityLabel={liveToday ? `Streak alive, ${streak} days` : "Streak"}
             >
               <StoryRing size={92} state={liveToday ? "live" : streak > 0 ? "risk" : "none"}>
-                <Identicon seed={wallet} size={80} label={name ?? wallet.slice(0, 2)} />
+                <Identicon seed={wallet} size={80} label={displayName} />
               </StoryRing>
             </Pressable>
             <View style={styles.stats}>
@@ -325,7 +325,7 @@ export function ProfileView({
           {/* Identity */}
           <View style={styles.identity}>
             {name ? <Text style={styles.name}>{displayName}</Text> : null}
-            {name ? <Text style={styles.subHandle}>{shortAddress(wallet)}</Text> : null}
+            {null}
             {self && !name ? (
               <Pressable
                 onPress={() => setSheet("edit")}
@@ -334,7 +334,7 @@ export function ProfileView({
                 accessibilityLabel="Choose a name"
               >
                 <Text style={styles.namePromptTitle}>Choose a name</Text>
-                <Text style={styles.namePromptSub}>So people see you, not {shortAddress(wallet)}</Text>
+                <Text style={styles.namePromptSub}>So people see a name, not a wallet address</Text>
               </Pressable>
             ) : null}
             <Text style={styles.bio}>{bio}</Text>
@@ -611,7 +611,7 @@ export function ProfileView({
                     >
                       <CoinArt uri={coin ? juno.still(coin.media) : null} seed={boost.coin} size={38} radius={10} />
                       <Text style={styles.sheetRowTitle} numberOfLines={1}>
-                        {coin ? coin.name : shortAddress(boost.coin)}
+                        {coin ? coin.name : "A post"}
                       </Text>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
                         <BoltGlyph size={14} color={theme.colors.text} filled />

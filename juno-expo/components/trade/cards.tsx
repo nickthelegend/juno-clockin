@@ -165,7 +165,7 @@ export function Trending({ coins, onOpen }: { coins: Coin[]; onOpen: (coin: Coin
         contentContainerStyle={{ gap: 12, paddingHorizontal: 16 }}
         style={{ marginHorizontal: -16 }}
         decelerationRate="fast"
-        snapToInterval={160}
+        snapToInterval={170}
       >
         {coins.map((coin, index) => (
           <TrendingCard key={coin.address} coin={coin} rank={index + 1} onPress={() => onOpen(coin)} />
@@ -176,8 +176,8 @@ export function Trending({ coins, onOpen }: { coins: Coin[]; onOpen: (coin: Coin
 }
 
 function TrendingCard({ coin, rank, onPress }: { coin: Coin; rank: number; onPress: () => void }) {
-  const W = 148;
-  const H = 196;
+  const W = 158;
+  const H = 204;
   const ticker = stockTicker(coin);
   const handle = useCreatorHandle(coin.creator.wallet);
   return (
@@ -188,14 +188,14 @@ function TrendingCard({ coin, rank, onPress }: { coin: Coin; rank: number; onPre
             <StockLogo ticker={ticker} seed={coin.address} size={72} />
           </View>
         ) : (
-          <CoinThumb coin={coin} size={W} radius={0} />
+          <CoinThumb coin={coin} size={W} height={H} radius={0} />
         )}
-        {!ticker ? <View style={{ position: "absolute", left: 0, right: 0, top: W, height: H - W, backgroundColor: c.ink }} /> : null}
         <Svg width={W} height={H} style={StyleSheet.absoluteFill} pointerEvents="none">
           <Defs>
             <LinearGradient id={`tg${rank}`} x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0.35" stopColor={c.ink} stopOpacity={0} />
-              <Stop offset="0.78" stopColor={c.ink} stopOpacity={0.92} />
+              <Stop offset="0.3" stopColor={c.ink} stopOpacity={0} />
+              <Stop offset="0.62" stopColor={c.ink} stopOpacity={0.6} />
+              <Stop offset="1" stopColor={c.ink} stopOpacity={0.95} />
             </LinearGradient>
           </Defs>
           <Rect x={0} y={0} width={W} height={H} fill={`url(#tg${rank})`} />
@@ -357,7 +357,7 @@ const local = StyleSheet.create({
   gradPill: { height: 34, paddingHorizontal: 14, borderRadius: 17, backgroundColor: c.surfaceAlt, alignItems: "center", justifyContent: "center" },
   gradText: { fontSize: 13, fontWeight: "700", color: c.muted },
   section: { fontSize: 18, fontWeight: "800", color: c.text, letterSpacing: -0.3 },
-  trend: { width: 148, height: 196, borderRadius: 20, overflow: "hidden", backgroundColor: c.ink, ...theme.shadow.card },
+  trend: { width: 158, height: 204, borderRadius: 20, overflow: "hidden", backgroundColor: c.ink, ...theme.shadow.card },
   rank: { position: "absolute", top: 10, left: 10, height: 24, paddingHorizontal: 9, borderRadius: 12, backgroundColor: c.lime, justifyContent: "center" },
   rankText: { fontSize: 12, fontWeight: "800", color: c.onLime },
   trendBody: { position: "absolute", left: 12, right: 12, bottom: 12, gap: 1 },

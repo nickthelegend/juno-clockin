@@ -447,11 +447,8 @@ function Reel({
         <View style={styles.chips}>
           <Pressable onPress={onOpenCoin} style={styles.chip}>
             <Text style={styles.chipStrong}>${coin.symbol}</Text>
-            <Text style={styles.chipText}>{money(coin.priceUsd, coin.marketCapCurrency, { compact: false })}</Text>
+            <Text style={styles.chipText}>{coin.holders ? `${coin.holders} holders` : "View coin"}</Text>
           </Pressable>
-          <View style={styles.chip}>
-            <Text style={styles.chipText}>{coin.curvePreset} curve</Text>
-          </View>
         </View>
       </View>
 
