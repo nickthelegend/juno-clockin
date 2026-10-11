@@ -55,13 +55,13 @@ export function ClockInCard({ compact = false }: { compact?: boolean }) {
   const label = !wallet.address
     ? "Connect wallet to clock in"
     : daily.busy === "funding"
-      ? "Getting devnet SOL for the fee…"
+      ? "Topping up the network fee…"
       : daily.busy === "signing"
         ? wallet.mode === "mwa"
           ? "Approve in your wallet…"
-          : "Signing on devnet…"
+          : "Signing…"
         : clocked
-          ? `Clocked in · back tomorrow for +${daily.nextReward}`
+          ? (daily.rewardsEnabled ? `Clocked in · back tomorrow for +${daily.nextReward}` : "Clocked in · see you tomorrow")
           : daily.rewardsEnabled
             ? `Clock in · +${daily.nextReward} ${SKR_SHORT}`
             : "Clock in on-chain";
@@ -89,12 +89,12 @@ export function ClockInCard({ compact = false }: { compact?: boolean }) {
           </Text>
           <Text style={styles.sub}>
             {!wallet.address
-              ? (daily.rewardsEnabled ? `Clock in once a day to earn ${SKR_SHORT}. Your streak lives on Solana.` : "Record your daily streak on devnet. SKR rewards are unavailable in this build.")
+              ? (daily.rewardsEnabled ? `Clock in once a day to earn ${SKR_SHORT}. Your streak lives on Solana.` : "Clock in once a day. Each one is a signed memo on Solana, so your streak is yours.")
               : data
                 ? `Best ${data.best} · ${data.total} ${data.total === 1 ? "day" : "days"} on-chain`
                 : daily.state.error
-                  ? "Could not read your history from devnet"
-                  : "Reading your history from devnet…"}
+                  ? "Couldn't load your history right now"
+                  : "Reading your streak from Solana…"}
           </Text>
         </View>
         {wallet.address ? (
@@ -152,7 +152,7 @@ export function ClockInCard({ compact = false }: { compact?: boolean }) {
         <Text style={styles.fine}>
           {daily.rewardsEnabled
             ? `Rewards are ${SKR_LABEL}: 10 on day one, +5 a day to 40. Seeker owners earn double. Spend them boosting posts.`
-            : "SKR rewards are unavailable in this build. Clock-ins still record on devnet."}
+            : "Every clock-in is a memo signed by your wallet on Solana. Miss a day and the streak resets."}
         </Text>
       ) : null}
     </View>

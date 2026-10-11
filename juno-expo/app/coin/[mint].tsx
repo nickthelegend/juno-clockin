@@ -677,7 +677,7 @@ function ActivityTab({
       ))}
       {partial ? (
         <Caption style={{ marginTop: 12 }}>
-          Some of this pool&rsquo;s history would not load — these are the fills that did.
+          Showing the latest fills. Older ones are still loading.
         </Caption>
       ) : null}
     </>

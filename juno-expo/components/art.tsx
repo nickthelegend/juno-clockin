@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Image, View } from "react-native";
 import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Rect, Stop, Text as SvgText } from "react-native-svg";
 
@@ -178,10 +179,12 @@ export function CoinArt({
   size?: number;
   radius?: number;
 }) {
-  if (uri) {
+  const [failed, setFailed] = useState(false);
+  if (uri && !failed) {
     return (
       <Image
         source={{ uri }}
+        onError={() => setFailed(true)}
         style={{
           width: size,
           height: size,

@@ -154,7 +154,7 @@ export function ClockInSheet({
         <Text style={styles.rules}>
           {daily.rewardsEnabled
             ? `Rewards are ${SKR_LABEL}: 10 on day one, +5 a day up to 40 on day seven. Seeker owners earn double. Each clock-in is a memo on Solana devnet, so your streak is read back from the chain. Spend rewards boosting posts.`
-            : "This build records clock-ins on-chain but has no devnet reward key, so it mints no SKR."}
+            : "Each clock-in is a memo signed by your wallet on Solana, so your streak is read back from the chain."}
         </Text>
       </View>
     </BottomSheet>

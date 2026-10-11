@@ -281,7 +281,7 @@ export function PriceLine({
 
       {partial && geometry ? (
         <Caption style={{ textAlign: "center", marginTop: 2 }}>
-          Some history would not load — this line is a prefix.
+          Showing recent history. Older fills are still loading.
         </Caption>
       ) : null}
     </View>
