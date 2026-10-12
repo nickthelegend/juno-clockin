@@ -120,7 +120,7 @@ export function BoostSheet({
 
             <Text style={styles.meta}>
               {wallet.address
-                ? `You have ${balance === null ? "—" : formatSkr(balance)} ${SKR_SHORT}${short ? " — clock in daily to earn more" : ""}`
+                ? `You have ${balance === null ? "—" : formatSkr(balance)} ${SKR_SHORT}${short ? (daily.rewardsEnabled ? " — clock in daily to earn more" : " — not enough to boost") : ""}`
                 : "Connect a wallet to boost"}
             </Text>
 

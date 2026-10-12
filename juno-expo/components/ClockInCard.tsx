@@ -70,7 +70,7 @@ export function ClockInCard({ compact = false }: { compact?: boolean }) {
     <View style={[styles.card, compact ? styles.compact : null]} accessibilityLabel="Daily clock-in">
       <View style={[styles.top, compact ? { justifyContent: "flex-end" } : null]}>
         {compact ? null : <Text style={styles.kicker}>DAILY CLOCK-IN</Text>}
-        <SeekerBadge mint={daily.seekerMint} checked={daily.seekerChecked} connected={Boolean(wallet.address)} />
+        <SeekerBadge mint={daily.seekerMint} checked={daily.seekerChecked} connected={Boolean(wallet.address)} rewards={daily.rewardsEnabled} />
       </View>
 
       <View style={styles.hero}>
@@ -159,8 +159,17 @@ export function ClockInCard({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function SeekerBadge({ mint, checked, connected }: { mint: string | null; checked: boolean; connected: boolean }) {
+function SeekerBadge({ mint, checked, connected, rewards }: { mint: string | null; checked: boolean; connected: boolean; rewards: boolean }) {
   if (!connected) return null;
+  // Without a reward authority in this build there is no 2x to promise; a Seeker is still recognised.
+  if (!rewards) {
+    if (!mint) return null;
+    return (
+      <View style={[styles.badge, styles.badgeOn]}>
+        <Text style={[styles.badgeText, { color: theme.colors.onLime }]}>Seeker verified</Text>
+      </View>
+    );
+  }
   if (mint) {
     return (
       <View style={[styles.badge, styles.badgeOn]}>

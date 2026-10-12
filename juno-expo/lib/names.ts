@@ -71,9 +71,14 @@ export function aliasFor(wallet: string): string {
   return `${ADJ[n % ADJ.length]}${NOUN[(n >>> 8) % NOUN.length]}`;
 }
 
-/** Seeded demo accounts carry a `demo_` prefix in the registry; people never see it. */
+/**
+ * Seeded demo accounts carry a `demo_` prefix in the registry. Their coins are real devnet launches made by those
+ * wallets, but the people are not real, so the name says so instead of passing as a person.
+ */
 export function cleanName(name: string | null): string | null {
-  return name ? name.replace(/^demo[_-]/i, "") : name;
+  if (!name) return name;
+  const base = name.replace(/^demo[_-]/i, "");
+  return base === name ? name : `${base} (demo)`;
 }
 
 /** This wallet's name, or null while unknown or when it has none. */

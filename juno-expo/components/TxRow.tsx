@@ -39,7 +39,7 @@ export function TxRow({
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={[styles.label, dark ? styles.labelDark : null]}>{label}</Text>
         <Text style={[styles.hash, dark ? styles.hashDark : null]} numberOfLines={1}>
-          {signature.slice(0, 8)}…{signature.slice(-8)}
+          Confirmed on Solana
         </Text>
       </View>
       <Pressable

@@ -190,10 +190,13 @@ export function ProfileView({
     if (streak > 0) parts.push(`${streak}-day streak`);
     if (boostsGiven.length > 0) parts.push(`backing ${boostsGiven.length} ${boostsGiven.length === 1 ? "post" : "posts"}`);
     if (parts.length === 0) {
-      return self ? "New on Juno. Clock in daily to earn dSKR, then back the posts you believe in." : "On Juno.";
+      if (!self) return "On Juno.";
+      return daily.rewardsEnabled
+        ? "New on Juno. Clock in daily to earn dSKR, then back the posts you believe in."
+        : "New on Juno. Clock in daily to build a streak on Solana, and back the posts you believe in.";
     }
     return parts.join(" · ");
-  }, [posts.length, streak, boostsGiven.length, self]);
+  }, [posts.length, streak, boostsGiven.length, self, daily.rewardsEnabled]);
 
   /* ----------------------------- actions ---------------------------- */
 
@@ -496,7 +499,9 @@ export function ProfileView({
                   title="No boosts yet"
                   detail={
                     self
-                      ? "Spend the dSKR you earn clocking in on posts you believe in. They collect here."
+                      ? daily.rewardsEnabled
+                        ? "Spend the dSKR you earn clocking in on posts you believe in. They collect here."
+                        : "Back the posts you believe in with dSKR. They collect here."
                       : "Posts they back with dSKR will show up here."
                   }
                   action={self ? { label: "Find a post", onPress: () => router.push("/(tabs)/social" as never) } : undefined}
@@ -626,8 +631,9 @@ export function ProfileView({
             <>
               <SheetTitle title="Seeker verified" />
               <Text style={styles.sheetBody}>
-                This wallet holds a Seeker Genesis Token (read from mainnet, no transaction). Seeker owners earn double dSKR on
-                every clock-in.
+                {daily.rewardsEnabled
+                  ? "This wallet holds a Seeker Genesis Token (read from mainnet, no transaction). Seeker owners earn double dSKR on every clock-in."
+                  : "This wallet holds a Seeker Genesis Token (read from mainnet, no transaction)."}
               </Text>
               {seekerMint ? <Text style={styles.mono}>{seekerMint}</Text> : null}
             </>

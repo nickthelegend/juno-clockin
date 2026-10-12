@@ -167,6 +167,15 @@ function Wallet({ children }: { children: React.ReactNode }) {
       if (cancelled) return;
       setKeypair(existing);
       setMwaAddress(mwa);
+      // A returning dev wallet signs in again on this device (SIWS, verified locally); an MWA wallet signs in when it connects.
+      if (existing && !mwa) {
+        try {
+          const input = buildSignInInput();
+          setSiws(verifiedProof(input, signInLocally(input, existing.secretKey), "dev-local", "Dev wallet"));
+        } catch {
+          setSiws(null);
+        }
+      }
       setLoaded(true);
     });
     return () => {

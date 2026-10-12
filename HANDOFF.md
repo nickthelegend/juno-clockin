@@ -4,6 +4,23 @@ Status as of 6 Oct 2026. Deadline: 9 Oct 2026 06:59 UTC (8 Oct 23:59 PDT).
 Everything below marked **verified** was run and seen working; everything
 else is stated as unverified.
 
+
+## 2026-10-12: no-mocks pass, 1.7.0 (versionCode 131)
+
+- **Feed and coins checked against devnet:** all 25 pools the API lists are real Meteora DBC pools launched by real
+  transactions; @lena, @kai, @rio and @ana are seed-script wallets (`demo_` in the names registry) that really launched
+  their coins. The app hid the prefix; it now shows "lena (demo)". "$SAVE" on Reels is the $AVE ticker chip.
+- **A real launch through the app's own flow** ("Green Hour", $GREENHR), then buy, sell, boost, claim creator fees,
+  comment, like, follow, watch and a name claim, all from the Release build on the iPhone 17 Pro simulator. Signatures
+  (all Finalized): [`clockin/BUTTON-AUDIT.md`](clockin/BUTTON-AUDIT.md).
+- **Honest rewards:** dSKR minting stays removed (1.6.0); six remaining reward/2x promises are now conditional on a
+  reward authority, which the build does not ship.
+- **Fixed:** a fake trade receipt when switching Buy/Sell after a trade; transaction hashes and mint/pool addresses in
+  the UI; a restored dev wallet had no Sign In With Solana proof; the receipt journal lockout (shared fix).
+- APK 1.7.0 (131): sha256 `7dc8737202c2b8fef8141a2c0c88ed1587c9459d5f1cef7106d1371fa1a49949`, signer `984c2ec7…a3f6`
+  (same keystore), arm64-v8a + x86_64. Not run on an Android device.
+- Not re-run: a clock-in (one per local day; today's was made in the 1.6.1 round).
+
 ## Authorship (read first)
 
 Juno was created by **robinbanter** (121 commits, Sep 2026) for the Solana

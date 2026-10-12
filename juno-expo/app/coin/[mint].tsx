@@ -771,7 +771,7 @@ function DetailsTab({
         />
         <DetailRow
           label="Mint address"
-          value={`${coin.address.slice(0, 6)}…${coin.address.slice(-4)}`}
+          value="Tap to copy"
           shaded
           copied={copied === "mint"}
           onCopy={() => void copy("mint", coin.address)}
@@ -783,7 +783,7 @@ function DetailsTab({
         <DetailRow label="Format" value={coin.format === "reel" ? "Reel" : "Post"} shaded={false} />
         <DetailRow
           label="Pool"
-          value={`${coin.pool.slice(0, 6)}…${coin.pool.slice(-4)}`}
+          value="Tap to copy"
           shaded
           copied={copied === "pool"}
           onCopy={() => void copy("pool", coin.pool)}
@@ -856,7 +856,7 @@ function ClaimFees({
         <Label style={{ fontWeight: "700" }}>Claimed {receipt.amount} in creator fees</Label>
         <Tappable onPress={() => void Linking.openURL(juno.explorer("tx", receipt.signature))} to={0.97}>
           <ClaimReceipt>
-            tx {receipt.signature.slice(0, 8)}…{receipt.signature.slice(-8)} ·{" "}
+            View on Solscan ·{" "}
             {receipt.at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </ClaimReceipt>
         </Tappable>

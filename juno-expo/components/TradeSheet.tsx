@@ -458,6 +458,8 @@ export function TradeSheet({
               $buy
               onPress={() => {
                 if (side !== "buy") setAmount("");
+                // A finished trade's receipt belongs to its own side: switching starts a new trade.
+                if (stage === "done") { setStage("entry"); setSignature(null); setLandedAt(null); }
                 setSide("buy");
               }}
               accessibilityRole="button"
@@ -473,6 +475,7 @@ export function TradeSheet({
               onPress={() => {
                 // An amount typed in SOL is meaningless as a token count.
                 if (side !== "sell") setAmount("");
+                if (stage === "done") { setStage("entry"); setSignature(null); setLandedAt(null); }
                 setSide("sell");
               }}
               accessibilityRole="button"

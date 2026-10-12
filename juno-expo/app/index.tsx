@@ -40,8 +40,8 @@ export default function Onboarding() {
         <Display>Every post{"\n"}is a market.</Display>
         <Body muted>
           Post a photo or a reel and it launches its own Meteora bonding curve.
-          Clock in every day to earn SKR, then boost the posts you believe in —
-          creators earn the fees and the boosts.
+          Clock in every day to keep your streak on Solana, and boost the posts you
+          believe in — creators earn the fees and the boosts.
         </Body>
       </Copy>
 
