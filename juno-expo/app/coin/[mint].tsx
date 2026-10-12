@@ -527,11 +527,17 @@ export default function CoinScreen() {
               quoteBalance={spendable.data?.balance ?? null}
               feeBalance={quoteMint === WSOL_MINT ? null : (feeSol.data?.balance ?? null)}
               initialAmount={sheet === "buy" && contributing ? String(contributing.amount) : ""}
-              onFilled={(spent) => void recordFill(spent)}
+              onFilled={(spent) => {
+                void recordFill(spent);
+                // Re-read both balances now, so switching to the other side right after a fill shows what was just
+                // bought (it showed 0 until the sheet was closed with Done).
+                setTimeout(() => setTradeRevision((n) => n + 1), 1500);
+              }}
               onCommented={() => comments.refresh()}
               onClose={() => {
                 setSheet(null);
                 setContributing(null);
+                setTradeRevision((n) => n + 1);
               }}
               onDone={() => {
                 setSheet(null);

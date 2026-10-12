@@ -5,6 +5,24 @@ Everything below marked **verified** was run and seen working; everything
 else is stated as unverified.
 
 
+## 2026-10-12 (evening): final pass, 1.8.0 (versionCode 132)
+
+- **Clock-ins pay a real devnet reward again, with no key in the app.** The clock-in transaction adds `check_in` on the
+  CLOCK IN rewards program (`GbtmzdtzLjPd1fZRmvVy7rnZzSMrUs6UfDJpZShEwXkw`, the XORV devnet program; its tSKR mint
+  `5yW5niiH…Rn5Rw` is a program PDA). 25 tSKR × streak (≤7×), labelled "devnet stand-in for SKR". It is simulated first
+  and dropped if it would fail (already paid today, program unavailable). New file `juno-expo/lib/clockinReward.ts`.
+  Verified on a fresh dev wallet: `5VA8XLQgioYDbuSstkdbnaBBRJyKAy21mLxm3T4sMnhjzVLyVqq6XnDinoVokZxsz9PYVD7oHA8WgFjue2TYGrfy`
+  (memo + reward, Finalized; the card shows "Clock-in · +25 tSKR paid on-chain"). It is another CLOCK IN project's
+  program; dSKR (boosts) is unchanged and still has no in-app faucet.
+- **Fixed:** the Sell tab showed "Balance: 0" right after a buy until the coin page was reopened (balances now re-read
+  after every fill and when the sheet closes); "Delete dev wallet" deleted the key with no confirmation (now an alert
+  with "Keep it" / "Delete"; tapped and cancelled).
+- Fresh-wallet demo run (all Finalized): launch $FALLSDAWN `5VvFGnUX…ASbZ` + `2MWT6PzX…NU1S`, buy `2ifmp1eK…Rt5Pa`,
+  sell `4pHt6rxX…qY2c`, boost 5 dSKR `3CgwHFcQ…jz3Dg`. The 50 dSKR for the boost were minted to the test wallet from the
+  operator CLI (devnet), not by the app.
+- APK 1.8.0 (132): sha256 `cbb0240aa5fc02672f9946b31f87fa1ddc7fa7af15793a8a2f7a6c599e3853ca`, signer `984c2ec7…a3f6` (same keystore),
+  arm64-v8a + x86_64, aapt2/apksigner checked, uploaded to `clockin-v1`, re-download matches. Not run on an Android device.
+
 ## 2026-10-12: no-mocks pass, 1.7.0 (versionCode 131)
 
 - **Feed and coins checked against devnet:** all 25 pools the API lists are real Meteora DBC pools launched by real

@@ -62,7 +62,7 @@ iPhone 17 Pro simulator (`5CE49A2A-…`), dev wallet `9DCuan197d1NgVhoCcDcEaN18e
 | Profile | Wallet sheet: Get devnet SOL | Backend/public faucet | Faucets dry; honest message + faucet link | | |
 | Profile | Wallet sheet: Signed in with Solana | SIWS proof | Shown after the fix | | A restored dev wallet had no proof; it now signs in again on launch |
 | Profile | Edit profile, Share profile | Name sheet / share sheet | Pass | | |
-| Profile | Delete dev wallet | Destructive | Not tapped (would delete the test wallet) | | |
+| Profile | Delete dev wallet | Destructive | 1.8.0: had no confirmation; now asks first. Tapped, "Keep it" kept the wallet | | Confirmation added |
 
 ## Mocks and dev text removed
 
@@ -82,3 +82,12 @@ iPhone 17 Pro simulator (`5CE49A2A-…`), dev wallet `9DCuan197d1NgVhoCcDcEaN18e
 
 - Clock-ins mint no dSKR (the authority is deliberately not shipped); a new wallet therefore has no dSKR to boost with.
 - The backend faucet and the public faucet were dry during this run.
+
+## 1.8.0 final pass (Oct 12 evening)
+
+- Clock-in now carries the CLOCK IN rewards program `check_in` (+25 tSKR, program-PDA mint, no key in the app):
+  `5VA8XLQgioYDbuSstkdbnaBBRJyKAy21mLxm3T4sMnhjzVLyVqq6XnDinoVokZxsz9PYVD7oHA8WgFjue2TYGrfy`.
+- Sell tab balance after a buy: was 0 until the coin page was reopened; fixed.
+- Delete dev wallet: confirmation added.
+- Re-run on a fresh wallet: launch, buy, sell, boost (signatures in HANDOFF). Profile counters (Boosted, portfolio)
+  catch up after a pull to refresh; not changed.

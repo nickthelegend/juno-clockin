@@ -14,8 +14,10 @@ import {
   type ClockInState,
 } from "./clockin";
 import { afterClockIn, enableReminders, streakAtRisk } from "./reminders";
-import { skrAuthority, SKR_DEVNET_MINT, solBalance, tokenBalance } from "./solana";
+import { devnet, skrAuthority, SKR_DEVNET_MINT, solBalance, tokenBalance } from "./solana";
 import { useWallet } from "./wallet";
+import { REWARD_MINT, rewardQuote } from "./clockinReward";
+import { PublicKey } from "@solana/web3.js";
 
 /**
  * Everything the daily loop needs, shared by the feed, the coin page and the
@@ -36,6 +38,10 @@ export type ClockInContext = {
   rewardsEnabled: boolean;
   /** The reward the next clock-in pays. */
   nextReward: number;
+  /** Today's tSKR from the on-chain CLOCK IN rewards program (no key in the app), or null when already paid / unavailable. */
+  programReward: number | null;
+  /** tSKR held (devnet stand-in for SKR paid by the rewards program). */
+  tskr: number | null;
   busy: "funding" | "signing" | null;
   lastResult: ClockInResult | null;
   refresh: () => Promise<void>;
@@ -52,6 +58,8 @@ export function ClockInProvider({ children }: { children: React.ReactNode }) {
   const wallet = useWallet();
   const [state, setState] = useState<Loadable<ClockInState>>({ data: null, loading: false, error: null });
   const [skr, setSkr] = useState<number | null>(null);
+  const [programReward, setProgramReward] = useState<number | null>(null);
+  const [tskr, setTskr] = useState<number | null>(null);
   const [sol, setSol] = useState<number | null>(null);
   const [seekerMint, setSeekerMint] = useState<string | null>(null);
   const [seekerChecked, setSeekerChecked] = useState(false);
@@ -71,6 +79,8 @@ export function ClockInProvider({ children }: { children: React.ReactNode }) {
       setState({ data: null, loading: false, error: null });
       setSkr(null);
       setSol(null);
+      setProgramReward(null);
+      setTskr(null);
       return;
     }
     setState((s) => ({ ...s, loading: true, error: null }));
@@ -85,6 +95,12 @@ export function ClockInProvider({ children }: { children: React.ReactNode }) {
       setSkr(skrNow);
       setSol(solNow);
       if (!clockins.clockedToday) void streakAtRisk(clockins.streak);
+      rewardQuote(new PublicKey(address), devnet())
+        .then((q) => mine === generation.current && setProgramReward(q))
+        .catch(() => mine === generation.current && setProgramReward(null));
+      tokenBalance(address, REWARD_MINT)
+        .then((v) => mine === generation.current && setTskr(v))
+        .catch(() => undefined);
     } catch (error) {
       if (mine !== generation.current) return;
       setState({ data: null, loading: false, error: error instanceof Error ? error.message : String(error) });
@@ -149,7 +165,11 @@ export function ClockInProvider({ children }: { children: React.ReactNode }) {
             }
           : s,
       );
-      if (result.rewarded) setSkr((value) => (value === null ? null : value + result.reward));
+      if (result.rewarded && result.unit === "dSKR") setSkr((value) => (value === null ? null : value + result.reward));
+      if (result.rewarded && result.unit === "tSKR") {
+        setTskr((value) => (value ?? 0) + result.reward);
+        setProgramReward(null);
+      }
       setTimeout(() => void refresh(), 4000);
       return result;
     } catch (error) {
@@ -188,13 +208,15 @@ export function ClockInProvider({ children }: { children: React.ReactNode }) {
       boosts,
       rewardsEnabled: skrAuthority() !== null,
       nextReward,
+      programReward,
+      tskr,
       busy,
       lastResult,
       refresh,
       clockIn,
       boost,
     }),
-    [state, skr, sol, seekerMint, seekerChecked, boosts, nextReward, busy, lastResult, refresh, clockIn, boost],
+    [state, skr, sol, seekerMint, seekerChecked, boosts, nextReward, programReward, tskr, busy, lastResult, refresh, clockIn, boost],
   );
 
   return <Context.Provider value={value}>{children}</Context.Provider>;

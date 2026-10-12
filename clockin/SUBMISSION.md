@@ -39,12 +39,14 @@ apps have no reason to open them tomorrow: you trade once, and leave.
    balance changes, not the memo's claim). It is a closed loop: show up, earn,
    back creators, the treasury refills.
 
-> **Reward status in 1.6.0:** the in-app dSKR reward mint is switched off.
-> Earlier builds signed the daily reward with a devnet mint-authority key
-> baked into the APK; anyone could extract it, so 1.6.0 ships no authority
-> key. Clock-ins still record on-chain and the streak works; the reward needs
-> a server-held treasury (see HANDOFF). Boosts and the boost Blink work for
-> wallets that already hold dSKR.
+> **Reward status (1.8.0):** the app still ships no mint-authority key. Each clock-in
+> transaction now also calls `check_in` on the CLOCK IN rewards program on devnet
+> (`GbtmzdtzLjPd1fZRmvVy7rnZzSMrUs6UfDJpZShEwXkw`, deployed for XORV), whose tSKR mint
+> is owned by a program PDA: the program pays 25 tSKR × the streak (up to 7×), a devnet
+> stand-in for SKR. The reward instruction only joins the transaction when it simulates
+> cleanly, so it can never sink a clock-in. Verified on devnet:
+> [`5VA8XLQg…GrfY`](https://explorer.solana.com/tx/5VA8XLQgioYDbuSstkdbnaBBRJyKAy21mLxm3T4sMnhjzVLyVqq6XnDinoVokZxsz9PYVD7oHA8WgFjue2TYGrfy?cluster=devnet)
+> (+25 tSKR). Boosts still spend dSKR, a separate stand-in that wallets must already hold.
 
 ## Why Seeker users come back daily
 
@@ -107,8 +109,8 @@ apps have no reason to open them tomorrow: you trade once, and leave.
    wallet** (Seed Vault / Phantom / Solflare). A new wallet is funded with
    devnet SOL from Juno's faucet automatically on its first clock-in.
 
-APK: package `app.launch.juno`, version 1.7.0 (versionCode 131).
-sha256: `7dc8737202c2b8fef8141a2c0c88ed1587c9459d5f1cef7106d1371fa1a49949`
+APK: package `app.launch.juno`, version 1.8.0 (versionCode 132).
+sha256: `cbb0240aa5fc02672f9946b31f87fa1ddc7fa7af15793a8a2f7a6c599e3853ca`
 
 Every button and the devnet signatures of a launch → buy → sell → boost → claim run from the app on Oct 12:
 [`BUTTON-AUDIT.md`](BUTTON-AUDIT.md).

@@ -17,6 +17,7 @@ import {
 } from "./solana";
 import { BOOST_CREATOR_PCT, BOOST_PREFIX, buildBoostTransaction, treasuryAccount } from "./txbuild";
 import type { WalletState } from "./wallet";
+import { mintedReward, rewardCheckIn, rewardQuote, simulatesClean } from "./clockinReward";
 
 /**
  * CLOCK IN — the daily loop, kept entirely on-chain.
@@ -158,7 +159,7 @@ async function signAndSend(
   },callbacks);
 }
 
-export type ClockInResult = { signature: string; reward: number; streak: number; rewarded: boolean };
+export type ClockInResult = { signature: string; reward: number; streak: number; rewarded: boolean; unit: "dSKR" | "tSKR" };
 
 export async function clockIn(
   wallet: WalletState,
@@ -181,9 +182,19 @@ export async function clockIn(
   const reward = rewardFor(streak, options.seeker);
   const authority = skrAuthority();
 
+  const clockMemo = memo(`${CLOCKIN_PREFIX}${clockDay}:s${streak}${options.seeker ? ":sgt" : ""}`, user);
+  // Without a dSKR authority in this build, the CLOCK IN rewards program pays a tSKR stand-in itself (its mint is a
+  // program PDA, so no key ships). It only joins the transaction when it simulates cleanly, so it can never sink a clock-in.
+  let programReward = false;
+  if (!authority) {
+    const quote = await rewardQuote(user, connection).catch(() => null);
+    if (quote !== null) programReward = await simulatesClean(user, [clockMemo, rewardCheckIn(user)], connection);
+  }
+
   const window = await connection.getLatestBlockhash("confirmed");
   const transaction = new Transaction({ feePayer: user, ...window });
-  transaction.add(memo(`${CLOCKIN_PREFIX}${clockDay}:s${streak}${options.seeker ? ":sgt" : ""}`, user));
+  transaction.add(clockMemo);
+  if (programReward) transaction.add(rewardCheckIn(user));
   if (authority) {
     transaction.add(
       createAtaIdempotent(user, user, SKR_DEVNET_MINT),
@@ -200,7 +211,11 @@ export async function clockIn(
   }
 
   const signature = await signAndSend(wallet, transaction, window, connection,{onIntent:()=>daily.prepare(),onSignature:signature=>daily.save(signature),onNoBroadcast:()=>daily.abort()});
-  return { signature, reward: authority ? reward : 0, streak, rewarded: Boolean(authority) };
+  if (programReward) {
+    const paid = await mintedReward(signature, user, connection);
+    return { signature, reward: paid ?? 0, streak, rewarded: paid !== null, unit: "tSKR" };
+  }
+  return { signature, reward: authority ? reward : 0, streak, rewarded: Boolean(authority), unit: "dSKR" };
 }
 
 /* ------------------------------------------------------------------ */

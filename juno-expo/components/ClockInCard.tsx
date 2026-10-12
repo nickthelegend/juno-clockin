@@ -5,6 +5,7 @@ import Svg, { Path } from "react-native-svg";
 import { dayKey, previousDay } from "../lib/clockin";
 import { useClockIn } from "../lib/clockinContext";
 import { explorerTx, SKR_LABEL, SKR_SHORT } from "../lib/solana";
+import { REWARD_SHORT } from "../lib/clockinReward";
 import { useWallet } from "../lib/wallet";
 import { TxRow } from "./TxRow";
 import { theme } from "../theme";
@@ -64,7 +65,9 @@ export function ClockInCard({ compact = false }: { compact?: boolean }) {
           ? (daily.rewardsEnabled ? `Clocked in · back tomorrow for +${daily.nextReward}` : "Clocked in · see you tomorrow")
           : daily.rewardsEnabled
             ? `Clock in · +${daily.nextReward} ${SKR_SHORT}`
-            : "Clock in on-chain";
+            : daily.programReward !== null
+              ? `Clock in · +${daily.programReward} ${REWARD_SHORT}`
+              : "Clock in on-chain";
 
   return (
     <View style={[styles.card, compact ? styles.compact : null]} accessibilityLabel="Daily clock-in">
@@ -140,7 +143,7 @@ export function ClockInCard({ compact = false }: { compact?: boolean }) {
         <TxRow
           tone="dark"
           signature={result.signature}
-          label={result.rewarded ? `Clock-in · +${result.reward} ${SKR_SHORT} minted` : "Clock-in recorded"}
+          label={result.rewarded ? `Clock-in · +${result.reward} ${result.unit === "tSKR" ? REWARD_SHORT : SKR_SHORT} paid on-chain` : "Clock-in recorded"}
         />
       ) : clocked && data?.entries[0] ? (
         <TxRow tone="dark" signature={data.entries[0].signature} label="Today's clock-in" />
@@ -152,7 +155,7 @@ export function ClockInCard({ compact = false }: { compact?: boolean }) {
         <Text style={styles.fine}>
           {daily.rewardsEnabled
             ? `Rewards are ${SKR_LABEL}: 10 on day one, +5 a day to 40. Seeker owners earn double. Spend them boosting posts.`
-            : "Every clock-in is a memo signed by your wallet on Solana. Miss a day and the streak resets."}
+            : `Every clock-in is a memo signed by your wallet on Solana, and the CLOCK IN rewards program pays ${REWARD_SHORT} (a devnet stand-in for SKR, up to 7× on a streak) from its own mint; this app holds no key.${daily.tskr ? ` You hold ${formatSkr(daily.tskr)} ${REWARD_SHORT}.` : ""} Miss a day and the streak resets.`}
         </Text>
       ) : null}
     </View>

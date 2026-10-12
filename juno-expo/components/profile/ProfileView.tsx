@@ -3,6 +3,7 @@ import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   ActivityIndicator,
   Image,
   Linking,
@@ -1071,13 +1072,25 @@ function SettingsBody({ wallet, onDisconnect }: { wallet: string; onDisconnect: 
       <Text style={styles.sheetBody}>{about}</Text>
       <WalletCard address={wallet} />
       <Pressable
-        onPress={async () => {
-          setBusy(true);
-          try {
-            await onDisconnect();
-          } finally {
-            setBusy(false);
-          }
+        onPress={() => {
+          const run = async () => {
+            setBusy(true);
+            try {
+              await onDisconnect();
+            } finally {
+              setBusy(false);
+            }
+          };
+          // Deleting the dev wallet removes its only key; ask first (disconnecting a real wallet loses nothing).
+          if (me.mode !== "local") return void run();
+          Alert.alert(
+            "Delete this dev wallet?",
+            "Its devnet key is removed from this phone and can't be recovered. Coins and dSKR it holds stay on chain but out of reach.",
+            [
+              { text: "Keep it", style: "cancel" },
+              { text: "Delete", style: "destructive", onPress: () => void run() },
+            ],
+          );
         }}
         style={styles.danger}
         accessibilityRole="button"
